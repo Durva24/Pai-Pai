@@ -1,387 +1,400 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { generateInvestmentPlan } from './api/analyzer';
+import { useState } from 'react';
+import { generateInvestmentPlan, UserFinancialData, InvestmentPlan } from '../lib/groqClient';
 
-// Define TypeScript interfaces for our data structures
-interface UserFinancialData {
-  income: number;
-  age: number;
-  expenses: number;
-  location: string;
-  debts: number;
-  liabilities: number;
-  financialGoals: string[];
-  timeHorizon: number;
-  monthlySavings?: number;
+// Dashboard components
+import Overview from '@/app/components/dashboard/Overview';
+import IncomeVsExpenses from '@/app/components/dashboard/IncomevsExpenses';
+import MonthlyExpenses from '@/app/components/dashboard/MonthlyExpenses';
+import EmergencyFund from '@/app/components/dashboard/EmergencyFund';
+import InvestmentGraph from '@/app/components/dashboard/InvestmentGraph';
+import InvestmentAllocation from '@/app/components/dashboard/InvestmentAllocation';
+import MilestoneTracker from '@/app/components/dashboard/Milestones';
+import PortfolioPerformance from '@/app/components/dashboard/PortfolioPerformance';
+import DebtTracker from '@/app/components/dashboard/DebtTracker';
+import Quote from '@/app/components/dashboard/Quote';
+import Form from '@/app/components/form/Form';
+import Card from '@/app/components/ui/card';
+
+// Define proper types to match component requirements
+interface DebtItem {
+  name: string;
+  amount: number;
+  interestRate: number;
+  minimumPayment: number;
 }
 
-interface FinancialGoal {
-  id: string;
-  label: string;
-  emoji: string;
+interface ExpenseCategory {
+  name: string;
+  amount: number;
+  percentage: number;
 }
 
-interface FieldConfig {
-  min: number;
-  max: number;
-  step: number;
-  increment: number;
-}
-
-interface FieldConfigurations {
-  [key: string]: FieldConfig;
-}
-
-interface NumberInputProps {
-  label: string;
+interface AssetClass {
+  name: string;
   value: number;
-  onChange: (value: number) => void;
-  onIncrement: () => void;
-  onDecrement: () => void;
-  emoji: string;
-  step?: number;
-  min?: number;
-  max?: number;
-  format?: (val: number) => string;
+  percentage: number;
+  color: string;
 }
 
-interface FinancialInputSidebarProps {
-  onDataSubmit: (data: UserFinancialData) => void;
+interface PerformanceMetric {
+  name: string;
+  value: string;
+  change: number;
+  isPositive: boolean;
 }
 
-// Aesthetic emojis for different financial categories
-const FINANCIAL_EMOJIS: Record<string, string> = {
-  income: '✦',
-  age: '⦿',
-  expenses: '⟐',
-  location: '⌘',
-  debts: '⎔',
-  liabilities: '◈',
-  goals: '❖',
-  timeHorizon: '⦿',
-  plus: '⊕',
-  minus: '⊖'
-};
+interface MilestoneItem {
+  name: string;
+  targetAmount: number;
+  currentAmount: number;
+  percentComplete: number;
+  estimatedYear: number;
+}
 
-// Available cities in India for dropdown
-const INDIAN_CITIES: string[] = [
-  'Mumbai', 'Delhi', 'Bangalore', 'Hyderabad', 'Chennai', 
-  'Kolkata', 'Pune', 'Ahmedabad', 'Jaipur', 'Lucknow',
-  'Surat', 'Kochi', 'Chandigarh', 'Coimbatore', 'Indore'
-];
+export default function Home() {
+  const [investmentPlan, setInvestmentPlan] = useState<InvestmentPlan | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
 
-// Available financial goals with aesthetic emojis
-const FINANCIAL_GOALS: FinancialGoal[] = [
-  { id: 'phone', label: 'Smartphone', emoji: '📱' },
-  { id: 'car', label: 'Car', emoji: '🚘' },
-  { id: 'home', label: 'Home', emoji: '🏠' },
-  { id: 'education', label: 'Education', emoji: '🎓' },
-  { id: 'vacation', label: 'Vacation', emoji: '✈️' },
-  { id: 'retirement', label: 'Retirement', emoji: '🌴' },
-  { id: 'emergency', label: 'Emergency Fund', emoji: '🛡️' },
-  { id: 'wedding', label: 'Wedding', emoji: '💍' }
-];
-
-// Field configurations for validation and increment/decrement behavior
-const FIELD_CONFIGS: FieldConfigurations = {
-  income: { min: 1000, max: 10000000, step: 1000, increment: 1000 },
-  age: { min: 18, max: 100, step: 1, increment: 1 },
-  expenses: { min: 0, max: 5000000, step: 1000, increment: 1000 },
-  debts: { min: 0, max: 10000000, step: 10000, increment: 10000 },
-  liabilities: { min: 0, max: 10000000, step: 10000, increment: 10000 },
-  timeHorizon: { min: 1, max: 40, step: 1, increment: 1 }
-};
-
-const FinancialInputSidebar: React.FC<FinancialInputSidebarProps> = ({ onDataSubmit }) => {
-  const [loading, setLoading] = useState<boolean>(false);
-  const [formData, setFormData] = useState<UserFinancialData>({
-    income: 30000,
-    age: 30,
-    expenses: 15000,
-    location: 'Bangalore',
-    debts: 500000,
-    liabilities: 700000,
-    financialGoals: ['phone', 'car'],
-    timeHorizon: 15,
-  });
-
-  // Calculate monthly savings whenever income or expenses change
-  useEffect(() => {
-    setFormData(prev => ({
-      ...prev,
-      monthlySavings: prev.income - prev.expenses
-    }));
-  }, [formData.income, formData.expenses]);
-
-  const handleNumberChange = (field: string, value: number): void => {
-    const config = FIELD_CONFIGS[field];
-    // Ensure value is within bounds
-    const boundedValue = Math.max(config.min, Math.min(config.max, value));
+  const handleFormSubmit = async (userData: UserFinancialData) => {
+    setIsLoading(true);
+    setError(null);
     
-    setFormData(prev => ({
-      ...prev,
-      [field]: boundedValue
-    }));
-  };
-
-  // Smart value adjustments based on field type
-  const incrementValue = (field: string): void => {
-    const config = FIELD_CONFIGS[field];
-    setFormData(prev => ({
-      ...prev,
-      [field]: Math.min(prev[field] + config.increment, config.max)
-    }));
-  };
-
-  const decrementValue = (field: string): void => {
-    const config = FIELD_CONFIGS[field];
-    setFormData(prev => ({
-      ...prev,
-      [field]: Math.max(prev[field] - config.increment, config.min)
-    }));
-  };
-
-  const handleLocationChange = (e: React.ChangeEvent<HTMLSelectElement>): void => {
-    setFormData(prev => ({
-      ...prev,
-      location: e.target.value
-    }));
-  };
-
-  const handleGoalToggle = (goalId: string): void => {
-    setFormData(prev => {
-      const updatedGoals = prev.financialGoals.includes(goalId)
-        ? prev.financialGoals.filter(g => g !== goalId)
-        : [...prev.financialGoals, goalId];
-      
-      return {
-        ...prev,
-        financialGoals: updatedGoals
-      };
-    });
-  };
-
-  const handleSubmit = async (): Promise<void> => {
-    setLoading(true);
     try {
-      // Call the API function to generate investment plan
-      const investmentPlan = await generateInvestmentPlan(formData);
-      // Pass the investment plan to the parent component
-      onDataSubmit(formData);
-    } catch (error) {
-      console.error('Error submitting data:', error);
+      const plan = await generateInvestmentPlan(userData);
+      setInvestmentPlan(plan);
+    } catch (err) {
+      setError('Failed to generate investment plan. Please try again.');
+      console.error(err);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  // Reusable number input with minimal custom design and +/- buttons
-  const NumberInput: React.FC<NumberInputProps> = ({ 
-    label, 
-    value, 
-    onChange, 
-    onIncrement,
-    onDecrement,
-    emoji, 
-    step = 1000, 
-    min = 0, 
-    max = 10000000,
-    format = (val: number) => `₹${val.toLocaleString('en-IN')}`
-  }) => {
-    return (
-      <div className="mb-6 bg-gray-50 p-4 rounded-lg border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center">
-            <span className="mr-2 text-lg text-black">{emoji}</span>
-            <span className="text-sm font-medium tracking-wide text-black">{label}</span>
-          </div>
-          <div className="flex items-center">
-            <button 
-              onClick={onDecrement}
-              className="w-8 h-8 flex items-center justify-center text-lg text-black hover:bg-gray-200 rounded-full transition-colors"
-              aria-label="Decrease value"
-            >
-              {FINANCIAL_EMOJIS.minus}
-            </button>
-            <div className="mx-2 text-sm font-medium min-w-24 text-center text-black">{format(value)}</div>
-            <button 
-              onClick={onIncrement}
-              className="w-8 h-8 flex items-center justify-center text-lg text-black hover:bg-gray-200 rounded-full transition-colors"
-              aria-label="Increase value"
-            >
-              {FINANCIAL_EMOJIS.plus}
-            </button>
-          </div>
-        </div>
-        <div className="relative w-full h-2 bg-gray-200 rounded-full">
-          <div 
-            className="absolute h-2 bg-black rounded-full"
-            style={{ width: `${Math.min(100, (value / max) * 100)}%` }}
-          ></div>
-          <input
-            type="range"
-            min={min}
-            max={max}
-            step={step}
-            value={value}
-            onChange={(e) => onChange(Number(e.target.value))}
-            className="absolute w-full h-2 opacity-0 cursor-pointer"
-            aria-label={`Adjust ${label}`}
-          />
-        </div>
-      </div>
+  // Adapt investment plan data to match component prop requirements
+  const getDebtTrackerData = () => {
+    if (!investmentPlan) return null;
+    
+    // Transform debt data to match DebtTrackerProps
+    return {
+      totalDebt: investmentPlan.debtRepaymentTracker.totalDebt,
+      totalMonthlyPayment: investmentPlan.debtRepaymentTracker.monthlyPayment,
+      averageInterestRate: 5.5, // Add appropriate value here
+      debtFreeDate: `December ${new Date().getFullYear() + Math.ceil(investmentPlan.debtRepaymentTracker.estimatedRepaymentTime / 12)}`,
+      debtItems: Object.entries(investmentPlan.debtRepaymentTracker.repaymentPlan).map(([name, amount]) => ({
+        name,
+        amount,
+        interestRate: 5.0, // Add appropriate value for each debt
+        minimumPayment: amount / 24, // Example calculation
+      }))
+    };
+  };
+
+  // Transform overview data to match OverviewProps
+  const getOverviewData = () => {
+    if (!investmentPlan) return null;
+    
+    return {
+      netWorth: investmentPlan.overview.currentNetWorth,
+      savingsRate: investmentPlan.incomeVsExpenses.savingsRate,
+      investmentRate: 15, // Add appropriate value
+      monthlyIncome: investmentPlan.incomeVsExpenses.monthlyIncome,
+      monthlyExpenses: Object.values(investmentPlan.incomeVsExpenses.monthlyExpenses).reduce((a, b) => a + b, 0),
+      monthlySavings: investmentPlan.incomeVsExpenses.monthlyIncome * (investmentPlan.incomeVsExpenses.savingsRate / 100)
+    };
+  };
+
+  // Transform income vs expenses data to match IncomeVsExpensesProps
+  const getIncomeExpenseData = () => {
+    if (!investmentPlan) return null;
+
+    const totalExpenses = Object.values(investmentPlan.incomeVsExpenses.monthlyExpenses).reduce((a, b) => a + b, 0);
+    const savings = investmentPlan.incomeVsExpenses.monthlyIncome - totalExpenses;
+    
+    return {
+      income: investmentPlan.incomeVsExpenses.monthlyIncome,
+      expenses: totalExpenses,
+      savings: savings,
+      savingsRate: investmentPlan.incomeVsExpenses.savingsRate,
+      monthlyData: [
+        { month: 'January', income: investmentPlan.incomeVsExpenses.monthlyIncome, expenses: totalExpenses },
+        { month: 'February', income: investmentPlan.incomeVsExpenses.monthlyIncome, expenses: totalExpenses },
+        { month: 'March', income: investmentPlan.incomeVsExpenses.monthlyIncome, expenses: totalExpenses }
+      ]
+    };
+  };
+
+  // Transform expense data to match MonthlyExpensesProps
+  const getExpenseData = () => {
+    if (!investmentPlan) return null;
+
+    const totalExpenses = Object.values(investmentPlan.monthlyExpenses.recurringBills).reduce((a, b) => a + b, 0);
+    
+    const categories: ExpenseCategory[] = Object.entries(investmentPlan.monthlyExpenses.recurringBills).map(([name, amount]) => ({
+      name,
+      amount,
+      percentage: (amount / totalExpenses) * 100
+    }));
+    
+    return {
+      totalExpenses,
+      categories
+    };
+  };
+
+  // Transform portfolio performance data to match PortfolioPerformanceProps
+  const getPerformanceData = () => {
+    if (!investmentPlan) return null;
+    
+    return {
+      totalValue: investmentPlan.portfolioPerformance.totalInvestedAmount,
+      totalReturn: 12000, // Add appropriate value
+      returnPercentage: 8.5, // Add appropriate value
+      isPositive: true,
+      timeHorizon: "Long-term",
+      metrics: [
+        { name: "Annual Return", value: "8.5%", change: 1.2, isPositive: true },
+        { name: "Dividend Yield", value: "2.1%", change: 0.3, isPositive: true }
+      ],
+      historicalPerformance: Object.entries(investmentPlan.portfolioPerformance.monthlyInvestments).map(([period, value]) => ({
+        period,
+        value
+      }))
+    };
+  };
+
+  // Transform investment graph data to match InvestmentGraphProps
+  const getInvestmentGraphData = () => {
+    if (!investmentPlan) return null;
+    
+    return {
+      currentInvestment: investmentPlan.portfolioPerformance.totalInvestedAmount,
+      projectedValue: investmentPlan.investmentGraph.investments[investmentPlan.investmentGraph.investments.length - 1],
+      timeHorizon: 20, // Add appropriate value
+      growthRate: 8, // Add appropriate value
+      monthlyContribution: 5000, // Add appropriate value
+      yearlyData: investmentPlan.investmentGraph.months.map((month, index) => ({
+        year: Math.floor(month / 12),
+        investmentValue: investmentPlan.investmentGraph.investments[index],
+        contributionValue: investmentPlan.investmentGraph.investments[index] * 0.7, // Example calculation
+        growthValue: investmentPlan.investmentGraph.returns[index]
+      }))
+    };
+  };
+
+  // Transform investment allocation data to match InvestmentAllocationProps
+  const getInvestmentAllocationData = () => {
+    if (!investmentPlan) return null;
+    
+    const totalInvestment = Object.values(investmentPlan.investmentAllocation.monthly).reduce(
+      (total, asset) => total + asset.amount, 0
     );
+    
+    const assetClasses: AssetClass[] = Object.entries(investmentPlan.investmentAllocation.monthly).map(
+      ([name, data]) => ({
+        name,
+        value: data.amount,
+        percentage: data.percentage,
+        color: getColorForAsset(name)
+      })
+    );
+    
+    return {
+      totalInvestment,
+      assetClasses,
+      riskLevel: "Moderate",
+      expectedReturn: Object.values(investmentPlan.investmentAllocation.expectedReturns)[0] // Example
+    };
+  };
+
+  // Helper function for allocation colors
+  const getColorForAsset = (assetName: string): string => {
+    const colors: Record<string, string> = {
+      equityMutualFunds: "#4C51BF",
+      debt: "#3182CE",
+      gold: "#D69E2E",
+      nps: "#38A169",
+      ppf: "#805AD5"
+    };
+    return colors[assetName] || "#718096";
+  };
+
+  // Transform emergency fund data to match EmergencyFundProps
+  const getEmergencyFundData = () => {
+    if (!investmentPlan) return null;
+    
+    const emergencyFund = {
+      currentAmount: investmentPlan.funds.emergencyFund.current,
+      targetAmount: investmentPlan.funds.emergencyFund.target,
+      percentComplete: (investmentPlan.funds.emergencyFund.current / investmentPlan.funds.emergencyFund.target) * 100
+    };
+    
+    const childrenEducationFund = {
+      currentAmount: investmentPlan.funds.childrenEducationFund.current,
+      targetAmount: investmentPlan.funds.childrenEducationFund.target,
+      percentComplete: (investmentPlan.funds.childrenEducationFund.current / investmentPlan.funds.childrenEducationFund.target) * 100
+    };
+    
+    const retirementFund = {
+      currentAmount: investmentPlan.funds.retirementFund.current,
+      targetAmount: investmentPlan.funds.retirementFund.target,
+      percentComplete: (investmentPlan.funds.retirementFund.current / investmentPlan.funds.retirementFund.target) * 100
+    };
+    
+    const dreamFunds = Object.entries(investmentPlan.funds.dreamFunds).map(([name, data]) => ({
+      name,
+      currentAmount: data.current,
+      targetAmount: data.target,
+      percentComplete: (data.current / data.target) * 100
+    }));
+    
+    return {
+      emergencyFund,
+      childrenEducationFund,
+      retirementFund,
+      dreamFunds
+    };
+  };
+
+  // Transform milestone tracker data to match MilestoneTrackerProps
+  const getMilestoneData = () => {
+    if (!investmentPlan) return null;
+    
+    const financialIndependence = {
+      targetAmount: investmentPlan.milestoneTracker.financialIndependence.targetAmount,
+      currentAmount: investmentPlan.milestoneTracker.financialIndependence.targetAmount * 
+        (investmentPlan.milestoneTracker.financialIndependence.progress / 100),
+      percentComplete: investmentPlan.milestoneTracker.financialIndependence.progress,
+      estimatedYear: new Date().getFullYear() + 
+        Math.ceil((100 - investmentPlan.milestoneTracker.financialIndependence.progress) / 5)
+    };
+    
+    const majorMilestones = Object.entries(investmentPlan.milestoneTracker.majorMilestones).map(([name, data]) => ({
+      name,
+      targetAmount: data.targetAmount,
+      currentAmount: data.targetAmount * (data.progress / 100),
+      percentComplete: data.progress,
+      estimatedYear: new Date().getFullYear() + Math.ceil((100 - data.progress) / 10)
+    }));
+    
+    return {
+      financialIndependence,
+      majorMilestones
+    };
   };
 
   return (
-    <div className="w-96 h-screen bg-white border-r border-gray-100 p-6 overflow-y-auto font-mono">
-      <div className="py-4 mb-6 text-center">
-        <h1 className="text-2xl font-bold tracking-tight text-black">Pai-Pai</h1>
-        <p className="text-sm text-black mt-1">Financial Planning Tool</p>
+    <main className="min-h-screen bg-white flex">
+      {/* Left Panel - Input Form (no side margins, reduced padding) */}
+      <div className="w-95 border-r border-gray-200 overflow-y-auto">
+        <div className="p-2">
+          <Form 
+            handleSubmit={handleFormSubmit} 
+            isLoading={isLoading} 
+          />
+          {error && <div className="mt-4 p-3 bg-red-50 text-red-700 rounded-md">{error}</div>}
+        
+          {investmentPlan && getDebtTrackerData() && (
+            <div className="mt-4">
+              <DebtTracker 
+                title="Debt Tracker"
+                debtData={getDebtTrackerData()!}
+              />
+            </div>
+          )}
+        </div>
       </div>
-      
-      <div className="mb-8">
-        <NumberInput 
-          label="Monthly Income" 
-          value={formData.income} 
-          onChange={(value) => handleNumberChange('income', value)} 
-          onIncrement={() => incrementValue('income')}
-          onDecrement={() => decrementValue('income')}
-          emoji={FINANCIAL_EMOJIS.income}
-          step={FIELD_CONFIGS.income.step}
-          min={FIELD_CONFIGS.income.min}
-          max={FIELD_CONFIGS.income.max}
-        />
-        
-        <NumberInput 
-          label="Age" 
-          value={formData.age} 
-          onChange={(value) => handleNumberChange('age', value)}
-          onIncrement={() => incrementValue('age')}
-          onDecrement={() => decrementValue('age')} 
-          emoji={FINANCIAL_EMOJIS.age}
-          step={FIELD_CONFIGS.age.step}
-          min={FIELD_CONFIGS.age.min}
-          max={FIELD_CONFIGS.age.max}
-          format={(val) => `${val} years`}
-        />
-        
-        <NumberInput 
-          label="Monthly Expenses" 
-          value={formData.expenses} 
-          onChange={(value) => handleNumberChange('expenses', value)}
-          onIncrement={() => incrementValue('expenses')}
-          onDecrement={() => decrementValue('expenses')} 
-          emoji={FINANCIAL_EMOJIS.expenses}
-          step={FIELD_CONFIGS.expenses.step}
-          min={FIELD_CONFIGS.expenses.min}
-          max={FIELD_CONFIGS.expenses.max}
-        />
-        
-        <div className="mb-6 bg-gray-50 p-4 rounded-lg border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center">
-              <span className="mr-2 text-lg text-black">{FINANCIAL_EMOJIS.location}</span>
-              <span className="text-sm font-medium tracking-wide text-black">Location</span>
+
+      {/* Main Content Area (full width) */}
+      <div className="flex-1 overflow-y-auto">
+        {!investmentPlan && !isLoading ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center p-4">
+              <p className="text-gray-600 mb-4">Enter your financial details to get started with your personalized investment plan.</p>
+              <Quote title="Financial Inspiration" />
             </div>
           </div>
-          <select 
-            className="w-full py-2 px-3 border border-gray-200 rounded-md bg-white text-sm text-black focus:outline-none focus:border-black transition-colors"
-            value={formData.location}
-            onChange={handleLocationChange}
-            aria-label="Select your location"
-          >
-            {INDIAN_CITIES.map(city => (
-              <option key={city} value={city}>{city}</option>
-            ))}
-          </select>
-        </div>
-        
-        <NumberInput 
-          label="Total Debts" 
-          value={formData.debts} 
-          onChange={(value) => handleNumberChange('debts', value)}
-          onIncrement={() => incrementValue('debts')}
-          onDecrement={() => decrementValue('debts')} 
-          emoji={FINANCIAL_EMOJIS.debts}
-          step={FIELD_CONFIGS.debts.step}
-          min={FIELD_CONFIGS.debts.min}
-          max={FIELD_CONFIGS.debts.max}
-        />
-        
-        <NumberInput 
-          label="Total Liabilities" 
-          value={formData.liabilities} 
-          onChange={(value) => handleNumberChange('liabilities', value)}
-          onIncrement={() => incrementValue('liabilities')}
-          onDecrement={() => decrementValue('liabilities')} 
-          emoji={FINANCIAL_EMOJIS.liabilities}
-          step={FIELD_CONFIGS.liabilities.step}
-          min={FIELD_CONFIGS.liabilities.min}
-          max={FIELD_CONFIGS.liabilities.max}
-        />
-        
-        <NumberInput 
-          label="Time Horizon" 
-          value={formData.timeHorizon} 
-          onChange={(value) => handleNumberChange('timeHorizon', value)}
-          onIncrement={() => incrementValue('timeHorizon')}
-          onDecrement={() => decrementValue('timeHorizon')} 
-          emoji={FINANCIAL_EMOJIS.timeHorizon}
-          step={FIELD_CONFIGS.timeHorizon.step}
-          min={FIELD_CONFIGS.timeHorizon.min}
-          max={FIELD_CONFIGS.timeHorizon.max}
-          format={(val) => `${val} years`}
-        />
-        
-        <div className="flex items-center justify-between py-4 px-5 bg-black text-white rounded-lg mt-6 shadow-md">
-          <span className="text-sm font-medium tracking-wide">Monthly Savings</span>
-          <span className="text-sm font-bold">₹{formData.monthlySavings?.toLocaleString('en-IN') || (formData.income - formData.expenses).toLocaleString('en-IN')}</span>
-        </div>
-      </div>
-      
-      <div className="mb-8">
-        <div className="flex items-center mb-4">
-          <span className="mr-2 text-lg text-black">{FINANCIAL_EMOJIS.goals}</span>
-          <h3 className="text-sm font-medium tracking-wide text-black">Financial Goals</h3>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          {FINANCIAL_GOALS.map(goal => (
-            <button
-              key={goal.id}
-              className={`flex items-center justify-between p-3 rounded-md ${formData.financialGoals.includes(goal.id) ? 'bg-black text-white shadow-md' : 'bg-gray-50 text-black border border-gray-100 shadow-sm'} transition-all duration-200 hover:border-gray-300`}
-              onClick={() => handleGoalToggle(goal.id)}
-              aria-pressed={formData.financialGoals.includes(goal.id)}
-              aria-label={`Select ${goal.label} as a financial goal`}
-            >
-              <div className="flex items-center">
-                <span className="mr-2 text-lg">{goal.emoji}</span>
-                <span className="text-xs font-medium">{goal.label}</span>
-              </div>
-              <div className={`w-4 h-4 rounded-full border ${formData.financialGoals.includes(goal.id) ? 'bg-white border-white' : 'border-gray-300'}`}>
-                {formData.financialGoals.includes(goal.id) && (
-                  <div className="w-full h-full rounded-full bg-black"></div>
-                )}
-              </div>
-            </button>
-          ))}
-        </div>
-      </div>
-      
-      <button 
-        className="w-full py-4 px-6 relative overflow-hidden group bg-black text-white text-sm font-medium rounded-lg transition-all duration-300 shadow-md hover:shadow-lg"
-        onClick={handleSubmit}
-        disabled={loading}
-        aria-label="Generate financial plan"
-      >
-        <span className="relative z-10">
-          {loading ? 'Generating Plan...' : 'Generate Financial Plan'}
-        </span>
-        <span className="absolute left-0 bottom-0 h-full bg-gray-800 w-0 transition-all duration-300 group-hover:w-full"></span>
-      </button>
-    </div>
-  );
-};
+        ) : isLoading ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center p-4">
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
+              <p className="text-gray-600">Generating your personalized investment plan...</p>
+            </div>
+          </div>
+        ) : investmentPlan && (
+          <div className="p-4 space-y-6">
+            {/* Top Section - Overview */}
+            <Card className="p-4">
+              <Overview 
+                title="Financial Overview"
+                overviewData={getOverviewData()!}
+              />
+            </Card>
 
-export default FinancialInputSidebar;
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Main Section - Left Column */}
+              <div className="space-y-6">
+                <Card className="p-4">
+                  <IncomeVsExpenses 
+                    title="Income vs Expenses"
+                    incomeExpenseData={getIncomeExpenseData()!}
+                  />
+                </Card>
+                
+                <Card className="p-4">
+                  <MonthlyExpenses 
+                    title="Monthly Expenses"
+                    expenseData={getExpenseData()!}
+                  />
+                </Card>
+                
+                <Card className="p-4">
+                  <PortfolioPerformance 
+                    title="Portfolio Performance"
+                    performanceData={getPerformanceData()!}
+                  />
+                </Card>
+              </div>
+
+              {/* Main Section - Right Column */}
+              <div className="space-y-6">
+                <Card className="p-4">
+                  <InvestmentGraph 
+                    title="Investment Growth"
+                    graphData={getInvestmentGraphData()!}
+                  />
+                </Card>
+                
+                <Card className="p-4">
+                  <InvestmentAllocation 
+                    title="Investment Allocation"
+                    allocationData={getInvestmentAllocationData()!}
+                  />
+                </Card>
+              </div>
+            </div>
+
+            {/* Bottom Section */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card className="p-4">
+                <EmergencyFund 
+                  title="Emergency Fund"
+                  fundData={getEmergencyFundData()!}
+                />
+              </Card>
+              
+              <Card className="md:col-span-2 p-4">
+                <MilestoneTracker 
+                  title="Financial Milestones"
+                  milestoneData={getMilestoneData()!}
+                />
+              </Card>
+            </div>
+          </div>
+        )}
+      </div>
+    </main>
+  );
+}

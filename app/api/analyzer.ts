@@ -1,5 +1,3 @@
-import  GroqAPI  from 'groq';
-
 // Define types for user input data
 export interface UserFinancialData {
   income: number;           // Monthly income in INR
@@ -118,6 +116,14 @@ export interface InvestmentPlan {
       after20Years: number;
       afterTimeHorizon: number;
     };
+    expectedTotalReturns: {  // Added total returns over investment period
+      equityMutualFunds: number;
+      debt: number;
+      gold: number;
+      nps: number;
+      ppf: number;
+      total: number;
+    };
   };
   milestoneTracker: {
     financialIndependence: {
@@ -153,7 +159,7 @@ export interface InvestmentPlan {
 }
 
 // API configuration
-const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
+const GROQ_API_KEY = process.env.NEXT_PUBLIC_GROQ_API_KEY || '';
 const MODEL = 'llama3-70b-8192';
 
 /**
@@ -167,14 +173,8 @@ export async function generateInvestmentPlan(userData: UserFinancialData): Promi
   }
 
   // Calculate monthly savings if not provided
-  if (!userData.monthlySavings) {
-    userData.monthlySavings = userData.income - userData.expenses;
-  }
-
-  const groq = new GroqAPI({
-    apiKey: GROQ_API_KEY,
-  });
-
+  const monthlySavings = userData.monthlySavings ?? (userData.income - userData.expenses);
+  
   const prompt = `
   You are a financial advisor specializing in Indian investment planning.
   Based on the following user financial data, create a detailed investment plan following modern financial principles.
@@ -189,7 +189,7 @@ export async function generateInvestmentPlan(userData: UserFinancialData): Promi
   - Total Liabilities: ₹${userData.liabilities}
   - Financial Goals: ${userData.financialGoals.join(', ')}
   - Investment Time Horizon: ${userData.timeHorizon} years
-  - Monthly Savings (Income - Expenses): ₹${userData.monthlySavings}
+  - Monthly Savings (Income - Expenses): ₹${monthlySavings}
 
   Please provide a comprehensive financial plan with the following components:
   1. Overview of current and projected assets, liabilities, and net worth
@@ -201,9 +201,10 @@ export async function generateInvestmentPlan(userData: UserFinancialData): Promi
      - "100 minus age" rule for equity allocation
      - 60% large-cap, 25% mid-cap/flexi-cap, 15% small-cap for mutual funds
      - Suitable debt instruments for the Indian market
-  7. Milestone tracker based on age and goals
-  8. Portfolio performance projections
-  9. Debt repayment strategy
+  7. Expected total returns for each investment type over the entire investment period
+  8. Milestone tracker based on age and goals
+  9. Portfolio performance projections
+  10. Debt repayment strategy
 
   Assume:
   - Annual salary increase of 8-10%
@@ -311,6 +312,14 @@ export async function generateInvestmentPlan(userData: UserFinancialData): Promi
         after10Years: 0,
         after20Years: 0,
         afterTimeHorizon: 0
+      },
+      expectedTotalReturns: {
+        equityMutualFunds: 0,
+        debt: 0,
+        gold: 0,
+        nps: 0,
+        ppf: 0,
+        total: 0
       }
     },
     milestoneTracker: {
@@ -336,23 +345,36 @@ export async function generateInvestmentPlan(userData: UserFinancialData): Promi
   `;
 
   try {
-    const response = await groq.chat.completions.create({
-      model: MODEL,
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a financial advisor specializing in Indian investment planning. Respond only with valid JSON data according to the template provided.'
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
-      ],
-      temperature: 0.2,
-      max_tokens: 4000,
+    // Make a direct API call to Groq
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${GROQ_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a financial advisor specializing in Indian investment planning. Respond only with valid JSON data according to the template provided.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        temperature: 0.2,
+        max_tokens: 4000
+      })
     });
 
-    const responseContent = response.choices[0].message.content;
+    if (!response.ok) {
+      throw new Error(`Groq API error: ${response.status} ${response.statusText}`);
+    }
+
+    const responseData = await response.json();
+    const responseContent = responseData.choices[0].message.content;
     
     if (!responseContent) {
       throw new Error('Empty response from Groq API');
@@ -388,6 +410,9 @@ export async function generateInvestmentPlan(userData: UserFinancialData): Promi
  * @param userData The original user data
  */
 function validateInvestmentPlan(plan: InvestmentPlan, userData: UserFinancialData): void {
+  // Calculate monthly savings if not provided in userData
+  const monthlySavings = userData.monthlySavings ?? (userData.income - userData.expenses);
+  
   // Ensure emergency fund target is at least 6 months of expenses
   const minEmergencyFund = userData.expenses * 6;
   if (plan.funds.emergencyFund.target < minEmergencyFund) {
@@ -450,13 +475,58 @@ function validateInvestmentPlan(plan: InvestmentPlan, userData: UserFinancialDat
       plan.investmentGraph.months.push(lastMonth + i);
       
       // Assume monthly investment stays constant
-      const newInvestment = lastInvestment + userData.monthlySavings;
+      const newInvestment = lastInvestment + monthlySavings;
       plan.investmentGraph.investments.push(newInvestment);
       
       // Assume returns grow at approximately 10% annually (0.8% monthly)
       const newReturn = lastReturn * 1.008;
       plan.investmentGraph.returns.push(newReturn);
     }
+  }
+
+  // Calculate expected total returns if not provided or incorrect
+  if (!plan.investmentAllocation.expectedTotalReturns ||
+      plan.investmentAllocation.expectedTotalReturns.total === 0) {
+    const monthlyEquity = plan.investmentAllocation.monthly.equityMutualFunds.amount;
+    const monthlyDebt = plan.investmentAllocation.monthly.debt.amount;
+    const monthlyGold = plan.investmentAllocation.monthly.gold.amount;
+    const monthlyNPS = plan.investmentAllocation.monthly.nps.amount;
+    const monthlyPPF = plan.investmentAllocation.monthly.ppf.amount;
+    
+    // Calculate total returns using compound interest formula
+    // FV = P * ((1 + r)^n - 1) / r * (1 + r), where:
+    // FV = Future value, P = Monthly payment, r = Monthly interest rate, n = Number of months
+    const months = userData.timeHorizon * 12;
+    const equityMonthlyRate = 0.12 / 12; // 12% annual / 12 months
+    const debtMonthlyRate = 0.07 / 12;   // 7% annual / 12 months
+    const goldMonthlyRate = 0.08 / 12;   // 8% annual / 12 months
+    const npsMonthlyRate = 0.1 / 12;     // 10% annual / 12 months
+    const ppfMonthlyRate = 0.071 / 12;   // 7.1% annual / 12 months
+    
+    // Calculate compound growth for each investment type
+    const equityTotal = monthlyEquity * ((Math.pow(1 + equityMonthlyRate, months) - 1) / equityMonthlyRate) * (1 + equityMonthlyRate);
+    const debtTotal = monthlyDebt * ((Math.pow(1 + debtMonthlyRate, months) - 1) / debtMonthlyRate) * (1 + debtMonthlyRate);
+    const goldTotal = monthlyGold * ((Math.pow(1 + goldMonthlyRate, months) - 1) / goldMonthlyRate) * (1 + goldMonthlyRate);
+    const npsTotal = monthlyNPS * ((Math.pow(1 + npsMonthlyRate, months) - 1) / npsMonthlyRate) * (1 + npsMonthlyRate);
+    const ppfTotal = monthlyPPF * ((Math.pow(1 + ppfMonthlyRate, months) - 1) / ppfMonthlyRate) * (1 + ppfMonthlyRate);
+    
+    // Calculate total invested amount for each investment type
+    const equityInvested = monthlyEquity * months;
+    const debtInvested = monthlyDebt * months;
+    const goldInvested = monthlyGold * months;
+    const npsInvested = monthlyNPS * months;
+    const ppfInvested = monthlyPPF * months;
+    
+    // Calculate returns as future value minus total invested
+    plan.investmentAllocation.expectedTotalReturns = {
+      equityMutualFunds: equityTotal - equityInvested,
+      debt: debtTotal - debtInvested,
+      gold: goldTotal - goldInvested,
+      nps: npsTotal - npsInvested,
+      ppf: ppfTotal - ppfInvested,
+      total: (equityTotal + debtTotal + goldTotal + npsTotal + ppfTotal) - 
+             (equityInvested + debtInvested + goldInvested + npsInvested + ppfInvested)
+    };
   }
 
   // Ensure all financial goals are included in dream funds and major milestones
@@ -466,7 +536,7 @@ function validateInvestmentPlan(plan: InvestmentPlan, userData: UserFinancialDat
       plan.funds.dreamFunds[goal] = {
         target: goal === 'phone' ? 50000 : goal === 'car' ? 800000 : 5000000, // Default targets
         current: 0,
-        monthlyContribution: userData.monthlySavings * 0.1, // Allocate 10% of savings
+        monthlyContribution: monthlySavings * 0.1, // Allocate 10% of savings
         timeToReach: 0 // Will be calculated below
       };
       
