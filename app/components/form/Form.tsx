@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { generateInvestmentPlan } from '../../api/analyzer';
 
 // Define TypeScript interfaces for our data structures
 interface UserFinancialData {
@@ -14,6 +13,7 @@ interface UserFinancialData {
   financialGoals: string[];
   timeHorizon: number;
   monthlySavings?: number;
+  [key: string]: number | string | string[] | undefined; // Add index signature
 }
 
 interface FinancialGoal {
@@ -44,6 +44,8 @@ interface NumberInputProps {
   min?: number;
   max?: number;
   format?: (val: number) => string;
+  field: string;
+  isCurrency?: boolean;
 }
 
 interface FinancialInputSidebarProps {
@@ -78,9 +80,8 @@ const FINANCIAL_GOALS: FinancialGoal[] = [
   { id: 'home', label: 'Home', emoji: '🏠' },
   { id: 'education', label: 'Education', emoji: '🎓' },
   { id: 'vacation', label: 'Vacation', emoji: '✈️' },
-  { id: 'retirement', label: 'Retirement', emoji: '🌴' },
-  { id: 'emergency', label: 'Emergency Fund', emoji: '🛡️' },
   { id: 'wedding', label: 'Wedding', emoji: '💍' }
+  // Removed emergency fund and retirement as requested
 ];
 
 // Field configurations for validation and increment/decrement behavior
@@ -93,13 +94,18 @@ const FIELD_CONFIGS: FieldConfigurations = {
   timeHorizon: { min: 1, max: 40, step: 1, increment: 1 }
 };
 
+// Format a number with proper Indian formatting (commas and ₹ symbol)
+const formatIndianCurrency = (amount: number): string => {
+  return `₹${amount.toLocaleString('en-IN')}`;
+};
+
 const FinancialInputSidebar: React.FC<FinancialInputSidebarProps> = ({ onDataSubmit }) => {
   const [loading, setLoading] = useState<boolean>(false);
   const [formData, setFormData] = useState<UserFinancialData>({
     income: 30000,
     age: 30,
     expenses: 15000,
-    location: 'Bangalore',
+    location: 'Delhi',
     debts: 500000,
     liabilities: 700000,
     financialGoals: ['phone', 'car'],
@@ -125,23 +131,7 @@ const FinancialInputSidebar: React.FC<FinancialInputSidebarProps> = ({ onDataSub
     }));
   };
 
-  // Smart value adjustments based on field type
-  const incrementValue = (field: string): void => {
-    const config = FIELD_CONFIGS[field];
-    setFormData(prev => ({
-      ...prev,
-      [field]: Math.min(prev[field] + config.increment, config.max)
-    }));
-  };
-
-  const decrementValue = (field: string): void => {
-    const config = FIELD_CONFIGS[field];
-    setFormData(prev => ({
-      ...prev,
-      [field]: Math.max(prev[field] - config.increment, config.min)
-    }));
-  };
-
+  // Handle location change
   const handleLocationChange = (e: React.ChangeEvent<HTMLSelectElement>): void => {
     setFormData(prev => ({
       ...prev,
@@ -149,6 +139,7 @@ const FinancialInputSidebar: React.FC<FinancialInputSidebarProps> = ({ onDataSub
     }));
   };
 
+  // Toggle financial goals
   const handleGoalToggle = (goalId: string): void => {
     setFormData(prev => {
       const updatedGoals = prev.financialGoals.includes(goalId)
@@ -162,12 +153,33 @@ const FinancialInputSidebar: React.FC<FinancialInputSidebarProps> = ({ onDataSub
     });
   };
 
-  const handleSubmit = async (): Promise<void> => {
+  // Smart value adjustments based on field type
+  const incrementValue = (field: string): void => {
+    const config = FIELD_CONFIGS[field];
+    setFormData(prev => {
+      const currentValue = prev[field] as number;
+      return {
+        ...prev,
+        [field]: Math.min(currentValue + config.increment, config.max)
+      };
+    });
+  };
+
+  const decrementValue = (field: string): void => {
+    const config = FIELD_CONFIGS[field];
+    setFormData(prev => {
+      const currentValue = prev[field] as number;
+      return {
+        ...prev,
+        [field]: Math.max(currentValue - config.increment, config.min)
+      };
+    });
+  };
+
+  const handleSubmit = (): void => {
     setLoading(true);
     try {
-      // Call the API function to generate investment plan
-      const investmentPlan = await generateInvestmentPlan(formData);
-      // Pass the investment plan to the parent component
+      // Pass the form data directly to the parent component
       onDataSubmit(formData);
     } catch (error) {
       console.error('Error submitting data:', error);
@@ -176,7 +188,7 @@ const FinancialInputSidebar: React.FC<FinancialInputSidebarProps> = ({ onDataSub
     }
   };
 
-  // Reusable number input with minimal custom design and +/- buttons
+  // Improved number input with better formatting and precision
   const NumberInput: React.FC<NumberInputProps> = ({ 
     label, 
     value, 
@@ -184,39 +196,125 @@ const FinancialInputSidebar: React.FC<FinancialInputSidebarProps> = ({ onDataSub
     onIncrement,
     onDecrement,
     emoji, 
+    field,
     step = 1000, 
     min = 0, 
     max = 10000000,
-    format = (val: number) => `₹${val.toLocaleString('en-IN')}`
+    format,
+    isCurrency = false
   }) => {
+    // Default formatter based on currency flag
+    const defaultFormatter = isCurrency 
+      ? (val: number) => formatIndianCurrency(val)
+      : (val: number) => `${val.toLocaleString('en-IN')}`;
+    
+    const formatter = format || defaultFormatter;
+    const displayValue = formatter(value);
+    
+    // Handle input focus for better UX
+    const [isFocused, setIsFocused] = useState(false);
+    const [inputValue, setInputValue] = useState(value.toString());
+
+    // Update local input value when the parent value changes
+    useEffect(() => {
+      if (!isFocused) {
+        setInputValue(value.toString());
+      }
+    }, [value, isFocused]);
+
+    // Handle direct text input
+    const handleDirectInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+      setInputValue(e.target.value);
+    };
+
+    // Handle slider input
+    const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const newValue = Number(e.target.value);
+      onChange(newValue); // Update the parent state immediately
+    };
+
+    // Process the input value when the input loses focus
+    const handleBlur = () => {
+      setIsFocused(false);
+
+      // Clean the input based on whether it's currency or not
+      const cleanValue = isCurrency 
+        ? inputValue.replace(/[^0-9]/g, '') 
+        : inputValue.replace(/[^0-9.]/g, '');
+      
+      // Convert to number, default to current value if invalid
+      const numValue = cleanValue ? parseFloat(cleanValue) : value;
+      
+      // Apply min/max bounds
+      const boundedValue = Math.max(min, Math.min(max, numValue));
+      
+      // Update parent component state
+      onChange(boundedValue);
+      
+      // Sync the input value with the bounded value
+      setInputValue(boundedValue.toString());
+    };
+
+    // Handle "Enter" key press
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Enter') {
+        handleBlur();
+      }
+    };
+
     return (
-      <div className="mb-6 bg-gray-50 p-4 rounded-lg border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-        <div className="flex items-center justify-between mb-3">
+      <div className="mb-3 bg-gray-50 p-2 rounded-lg border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+        <div className="flex items-center justify-between mb-1">
           <div className="flex items-center">
-            <span className="mr-2 text-lg text-black">{emoji}</span>
-            <span className="text-sm font-medium tracking-wide text-black">{label}</span>
+            <span className="mr-1 text-md text-black">{emoji}</span>
+            <span className="text-xs font-medium tracking-wide text-black">{label}</span>
           </div>
           <div className="flex items-center">
             <button 
               onClick={onDecrement}
-              className="w-8 h-8 flex items-center justify-center text-lg text-black hover:bg-gray-200 rounded-full transition-colors"
+              className="w-7 h-7 flex items-center justify-center text-md text-black hover:bg-gray-200 rounded-full transition-colors"
               aria-label="Decrease value"
+              type="button"
             >
               {FINANCIAL_EMOJIS.minus}
             </button>
-            <div className="mx-2 text-sm font-medium min-w-24 text-center text-black">{format(value)}</div>
+            <div className="mx-1 text-xs font-medium min-w-16 text-center text-black">
+              {isFocused ? (
+                <input
+                  type="text"
+                  value={inputValue}
+                  onChange={handleDirectInput}
+                  onBlur={handleBlur}
+                  onKeyDown={handleKeyDown}
+                  className="w-20 text-center bg-white border border-gray-200 rounded px-1 py-1 focus:outline-none focus:border-black"
+                  aria-label={`Enter ${label} directly`}
+                  autoFocus
+                />
+              ) : (
+                <div
+                  onClick={() => {
+                    setIsFocused(true);
+                    setInputValue(value.toString());
+                  }}
+                  className="cursor-text w-20 text-center"
+                >
+                  {displayValue}
+                </div>
+              )}
+            </div>
             <button 
               onClick={onIncrement}
-              className="w-8 h-8 flex items-center justify-center text-lg text-black hover:bg-gray-200 rounded-full transition-colors"
+              className="w-7 h-7 flex items-center justify-center text-md text-black hover:bg-gray-200 rounded-full transition-colors"
               aria-label="Increase value"
+              type="button"
             >
               {FINANCIAL_EMOJIS.plus}
             </button>
           </div>
         </div>
-        <div className="relative w-full h-2 bg-gray-200 rounded-full">
+        <div className="relative w-full h-1 bg-gray-200 rounded-full">
           <div 
-            className="absolute h-2 bg-black rounded-full"
+            className="absolute h-1 bg-black rounded-full"
             style={{ width: `${Math.min(100, (value / max) * 100)}%` }}
           ></div>
           <input
@@ -225,23 +323,53 @@ const FinancialInputSidebar: React.FC<FinancialInputSidebarProps> = ({ onDataSub
             max={max}
             step={step}
             value={value}
-            onChange={(e) => onChange(Number(e.target.value))}
-            className="absolute w-full h-2 opacity-0 cursor-pointer"
+            onChange={handleSliderChange}
+            className="absolute w-full h-1 opacity-0 cursor-pointer"
             aria-label={`Adjust ${label}`}
           />
+        </div>
+        <div className="flex justify-between mt-1">
+          <span className="text-xs text-gray-500">{isCurrency ? formatIndianCurrency(min) : min}</span>
+          <span className="text-xs text-gray-500">{isCurrency ? formatIndianCurrency(max) : max}</span>
         </div>
       </div>
     );
   };
 
   return (
-    <div className="w-96 h-screen bg-white border-r border-gray-100 p-6 overflow-y-auto font-mono">
-      <div className="py-4 mb-6 text-center">
-        <h1 className="text-2xl font-bold tracking-tight text-black">Pai-Pai</h1>
-        <p className="text-sm text-black mt-1">Financial Planning Tool</p>
+    <div className="w-78 h-screen bg-white border-r border-gray-100 p-2 overflow-y-auto font-mono" style={{
+      scrollbarWidth: 'thin',
+      scrollbarColor: '#cbd5e0 #ffffff',
+    }}>
+      <style jsx global>{`
+        /* Custom scrollbar for webkit browsers */
+        ::-webkit-scrollbar {
+          width: 4px;
+          height: 4px;
+        }
+        ::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+          background: #cbd5e0;
+          border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+          background: #a0aec0;
+        }
+        /* For Firefox */
+        * {
+          scrollbar-width: thin;
+          scrollbar-color: #cbd5e0 transparent;
+        }
+      `}</style>
+      
+      <div className="py-2 mb-2 text-center">
+        <h1 className="text-xl font-bold tracking-tight text-black">Pai-Pai</h1>
+        <p className="text-xs text-black">Financial Planning Tool</p>
       </div>
       
-      <div className="mb-8">
+      <div className="mb-3 space-y-2">
         <NumberInput 
           label="Monthly Income" 
           value={formData.income} 
@@ -249,9 +377,11 @@ const FinancialInputSidebar: React.FC<FinancialInputSidebarProps> = ({ onDataSub
           onIncrement={() => incrementValue('income')}
           onDecrement={() => decrementValue('income')}
           emoji={FINANCIAL_EMOJIS.income}
+          field="income"
           step={FIELD_CONFIGS.income.step}
           min={FIELD_CONFIGS.income.min}
           max={FIELD_CONFIGS.income.max}
+          isCurrency={true}
         />
         
         <NumberInput 
@@ -261,6 +391,7 @@ const FinancialInputSidebar: React.FC<FinancialInputSidebarProps> = ({ onDataSub
           onIncrement={() => incrementValue('age')}
           onDecrement={() => decrementValue('age')} 
           emoji={FINANCIAL_EMOJIS.age}
+          field="age"
           step={FIELD_CONFIGS.age.step}
           min={FIELD_CONFIGS.age.min}
           max={FIELD_CONFIGS.age.max}
@@ -274,20 +405,22 @@ const FinancialInputSidebar: React.FC<FinancialInputSidebarProps> = ({ onDataSub
           onIncrement={() => incrementValue('expenses')}
           onDecrement={() => decrementValue('expenses')} 
           emoji={FINANCIAL_EMOJIS.expenses}
+          field="expenses"
           step={FIELD_CONFIGS.expenses.step}
           min={FIELD_CONFIGS.expenses.min}
           max={FIELD_CONFIGS.expenses.max}
+          isCurrency={true}
         />
         
-        <div className="mb-6 bg-gray-50 p-4 rounded-lg border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between mb-3">
+        <div className="mb-2 bg-gray-50 p-2 rounded-lg border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between mb-1">
             <div className="flex items-center">
-              <span className="mr-2 text-lg text-black">{FINANCIAL_EMOJIS.location}</span>
-              <span className="text-sm font-medium tracking-wide text-black">Location</span>
+              <span className="mr-1 text-md text-black">{FINANCIAL_EMOJIS.location}</span>
+              <span className="text-xs font-medium tracking-wide text-black">Location</span>
             </div>
           </div>
           <select 
-            className="w-full py-2 px-3 border border-gray-200 rounded-md bg-white text-sm text-black focus:outline-none focus:border-black transition-colors"
+            className="w-full py-1.5 px-2 border border-gray-200 rounded-md bg-white text-xs text-black focus:outline-none focus:border-black transition-colors"
             value={formData.location}
             onChange={handleLocationChange}
             aria-label="Select your location"
@@ -305,9 +438,11 @@ const FinancialInputSidebar: React.FC<FinancialInputSidebarProps> = ({ onDataSub
           onIncrement={() => incrementValue('debts')}
           onDecrement={() => decrementValue('debts')} 
           emoji={FINANCIAL_EMOJIS.debts}
+          field="debts"
           step={FIELD_CONFIGS.debts.step}
           min={FIELD_CONFIGS.debts.min}
           max={FIELD_CONFIGS.debts.max}
+          isCurrency={true}
         />
         
         <NumberInput 
@@ -317,9 +452,11 @@ const FinancialInputSidebar: React.FC<FinancialInputSidebarProps> = ({ onDataSub
           onIncrement={() => incrementValue('liabilities')}
           onDecrement={() => decrementValue('liabilities')} 
           emoji={FINANCIAL_EMOJIS.liabilities}
+          field="liabilities"
           step={FIELD_CONFIGS.liabilities.step}
           min={FIELD_CONFIGS.liabilities.min}
           max={FIELD_CONFIGS.liabilities.max}
+          isCurrency={true}
         />
         
         <NumberInput 
@@ -329,37 +466,41 @@ const FinancialInputSidebar: React.FC<FinancialInputSidebarProps> = ({ onDataSub
           onIncrement={() => incrementValue('timeHorizon')}
           onDecrement={() => decrementValue('timeHorizon')} 
           emoji={FINANCIAL_EMOJIS.timeHorizon}
+          field="timeHorizon"
           step={FIELD_CONFIGS.timeHorizon.step}
           min={FIELD_CONFIGS.timeHorizon.min}
           max={FIELD_CONFIGS.timeHorizon.max}
           format={(val) => `${val} years`}
         />
         
-        <div className="flex items-center justify-between py-4 px-5 bg-black text-white rounded-lg mt-6 shadow-md">
-          <span className="text-sm font-medium tracking-wide">Monthly Savings</span>
-          <span className="text-sm font-bold">₹{formData.monthlySavings?.toLocaleString('en-IN') || (formData.income - formData.expenses).toLocaleString('en-IN')}</span>
+        <div className="flex items-center justify-between py-2.5 px-3 bg-black text-white rounded-lg mt-2 shadow-md">
+          <span className="text-xs font-medium tracking-wide">Monthly Savings</span>
+          <span className="text-xs font-bold">
+            {formatIndianCurrency(formData.monthlySavings || (formData.income - formData.expenses))}
+          </span>
         </div>
       </div>
       
-      <div className="mb-8">
-        <div className="flex items-center mb-4">
-          <span className="mr-2 text-lg text-black">{FINANCIAL_EMOJIS.goals}</span>
-          <h3 className="text-sm font-medium tracking-wide text-black">Financial Goals</h3>
+      <div className="mb-3">
+        <div className="flex items-center mb-2">
+          <span className="mr-1 text-md text-black">{FINANCIAL_EMOJIS.goals}</span>
+          <h3 className="text-xs font-medium tracking-wide text-black">Financial Goals</h3>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-2">
           {FINANCIAL_GOALS.map(goal => (
             <button
               key={goal.id}
-              className={`flex items-center justify-between p-3 rounded-md ${formData.financialGoals.includes(goal.id) ? 'bg-black text-white shadow-md' : 'bg-gray-50 text-black border border-gray-100 shadow-sm'} transition-all duration-200 hover:border-gray-300`}
+              className={`flex items-center justify-between p-2 h-10 rounded-md ${formData.financialGoals.includes(goal.id) ? 'bg-black text-white shadow-md' : 'bg-gray-50 text-black border border-gray-100 shadow-sm'} transition-all duration-200 hover:border-gray-300`}
               onClick={() => handleGoalToggle(goal.id)}
               aria-pressed={formData.financialGoals.includes(goal.id)}
               aria-label={`Select ${goal.label} as a financial goal`}
+              type="button"
             >
               <div className="flex items-center">
-                <span className="mr-2 text-lg">{goal.emoji}</span>
+                <span className="mr-1 text-md">{goal.emoji}</span>
                 <span className="text-xs font-medium">{goal.label}</span>
               </div>
-              <div className={`w-4 h-4 rounded-full border ${formData.financialGoals.includes(goal.id) ? 'bg-white border-white' : 'border-gray-300'}`}>
+              <div className={`w-3 h-3 rounded-full border ${formData.financialGoals.includes(goal.id) ? 'bg-white border-white' : 'border-gray-300'}`}>
                 {formData.financialGoals.includes(goal.id) && (
                   <div className="w-full h-full rounded-full bg-black"></div>
                 )}
@@ -370,10 +511,11 @@ const FinancialInputSidebar: React.FC<FinancialInputSidebarProps> = ({ onDataSub
       </div>
       
       <button 
-        className="w-full py-4 px-6 relative overflow-hidden group bg-black text-white text-sm font-medium rounded-lg transition-all duration-300 shadow-md hover:shadow-lg"
+        className="w-full py-3 px-3 relative overflow-hidden group bg-black text-white text-xs font-medium rounded-lg transition-all duration-300 shadow-md hover:shadow-lg"
         onClick={handleSubmit}
         disabled={loading}
         aria-label="Generate financial plan"
+        type="button"
       >
         <span className="relative z-10">
           {loading ? 'Generating Plan...' : 'Generate Financial Plan'}
