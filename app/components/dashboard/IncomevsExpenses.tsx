@@ -4,69 +4,127 @@ import React from 'react';
 
 interface IncomeVsExpensesProps {
   title: string;
-  incomeExpenseData?: {
-    income: number;
-    expenses: number;
-    savings: number;
-    savingsRate: number;
-    monthlyData: {
-      month: string;
-      income: number;
-      expenses: number;
-    }[];
-  };
+  userData: any; // Using the userData from page.tsx
+  income: number;
+  expenses: number;
+  monthlySavings?: number;
 }
 
-const IncomeVsExpenses: React.FC<IncomeVsExpensesProps> = ({ title, incomeExpenseData }) => {
-  // Placeholder data if none provided
-  const data = incomeExpenseData || {
-    income: 60000,
-    expenses: 39000,
-    savings: 21000,
-    savingsRate: 35,
-    monthlyData: [
-      { month: 'Jan', income: 60000, expenses: 39000 },
-      { month: 'Feb', income: 60000, expenses: 40000 },
-      { month: 'Mar', income: 62000, expenses: 38000 },
-      { month: 'Apr', income: 62000, expenses: 37000 },
-      { month: 'May', income: 63000, expenses: 39000 },
-      { month: 'Jun', income: 63000, expenses: 41000 }
-    ]
+const IncomeVsExpenses: React.FC<IncomeVsExpensesProps> = ({ 
+  title, 
+  userData,
+  income, 
+  expenses, 
+  monthlySavings
+}) => {
+  // Calculate savings if not directly provided
+  const calculatedSavings = monthlySavings !== undefined ? monthlySavings : income - expenses;
+  
+  // Calculate savings rate as a percentage
+  const savingsRate = income > 0 ? Math.round((calculatedSavings / income) * 100) : 0;
+  
+  // Constants for projections
+  const INFLATION_RATE = 0.04; // 4.0% annual inflation
+  const SALARY_GROWTH_RATE = 0.055; // 5.5% annual salary growth
+  
+  // Get time horizon from userData or default to 5 years
+  const timeHorizon = userData.timeHorizon || 5;
+  
+  // Calculate projections for the time horizon
+  const calculateProjections = () => {
+    let projectedIncome = income;
+    let projectedExpenses = expenses;
+    
+    // Calculate final values after time horizon years
+    for (let year = 1; year <= timeHorizon; year++) {
+      projectedIncome = projectedIncome * (1 + SALARY_GROWTH_RATE);
+      projectedExpenses = projectedExpenses * (1 + INFLATION_RATE);
+    }
+    
+    return {
+      futureIncome: projectedIncome,
+      futureExpenses: projectedExpenses,
+      futureSavings: projectedIncome - projectedExpenses,
+      futureSavingsRate: Math.round(((projectedIncome - projectedExpenses) / projectedIncome) * 100)
+    };
+  };
+  
+  const projections = calculateProjections();
+  
+  // Helper function to format currency
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0
+    }).format(amount);
   };
 
   return (
     <div className="w-full">
-      <h2 className="text-xl font-medium tracking-wide text-black mb-4">{title}</h2>
+      <h2 className="text-xl font-bold mb-4 font-mono text-black">{title}</h2>
       
-      <div className="flex justify-between mb-6">
-        <div className="flex flex-col">
-          <span className="text-sm text-gray-600">Monthly Income</span>
-          <span className="text-lg font-bold text-black">₹{data.income.toLocaleString('en-IN')}</span>
+      {/* Current Financial Status Cards */}
+      <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="bg-gray-100 p-4 rounded-lg">
+          <h3 className="text-sm text-black font-mono mb-1">Monthly Income</h3>
+          <p className="text-xl font-bold font-mono text-black">{formatCurrency(income)}</p>
         </div>
-        <div className="flex flex-col">
-          <span className="text-sm text-gray-600">Monthly Expenses</span>
-          <span className="text-lg font-bold text-black">₹{data.expenses.toLocaleString('en-IN')}</span>
+        
+        <div className="bg-gray-100 p-4 rounded-lg">
+          <h3 className="text-sm text-black font-mono mb-1">Monthly Expenses</h3>
+          <p className="text-xl font-bold font-mono text-black">{formatCurrency(expenses)}</p>
         </div>
-        <div className="flex flex-col">
-          <span className="text-sm text-gray-600">Monthly Savings</span>
-          <span className="text-lg font-bold text-black">₹{data.savings.toLocaleString('en-IN')}</span>
+        
+        <div className="bg-gray-100 p-4 rounded-lg">
+          <h3 className="text-sm text-black font-mono mb-1">Monthly Savings</h3>
+          <p className="text-xl font-bold font-mono text-black">{formatCurrency(calculatedSavings)}</p>
         </div>
       </div>
       
-      {/* Placeholder for chart */}
-      <div className="bg-gray-50 p-4 rounded-lg border border-gray-100 h-64 mb-4 flex items-center justify-center">
-        <span className="text-gray-400">Income vs Expenses Chart Placeholder</span>
+      {/* Savings Rate Bar - Simplified */}
+      <div className="mb-6">
+        <div className="flex justify-between mb-1">
+          <span className="text-sm font-mono text-black">Savings Rate</span>
+          <span className="text-sm font-bold font-mono text-black">{savingsRate}%</span>
+        </div>
+        <div className="w-full bg-gray-200 rounded-full h-2">
+          <div 
+            className="bg-black h-2 rounded-full" 
+            style={{ width: `${Math.min(savingsRate, 100)}%` }}
+          ></div>
+        </div>
       </div>
       
-      <div className="w-full bg-gray-100 h-2 rounded-full mt-2">
-        <div 
-          className="bg-black h-2 rounded-full" 
-          style={{ width: `${data.savingsRate}%` }}
-        ></div>
+      {/* Future Projections */}
+      <div className="border border-gray-200 rounded-lg p-4 mb-4">
+        <h3 className="text-md font-bold mb-4 font-mono text-black">Future Projections ({timeHorizon} years)</h3>
+        
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <h4 className="text-xs text-gray-700 font-mono">Projected Monthly Income</h4>
+            <p className="text-lg font-bold font-mono text-black">{formatCurrency(projections.futureIncome)}</p>
+          </div>
+          
+          <div>
+            <h4 className="text-xs text-gray-700 font-mono">Projected Monthly Expenses</h4>
+            <p className="text-lg font-bold font-mono text-black">{formatCurrency(projections.futureExpenses)}</p>
+          </div>
+          
+          <div>
+            <h4 className="text-xs text-gray-700 font-mono">Projected Monthly Savings</h4>
+            <p className="text-lg font-bold font-mono text-black">{formatCurrency(projections.futureSavings)}</p>
+          </div>
+          
+          <div>
+            <h4 className="text-xs text-gray-700 font-mono">Projected Savings Rate</h4>
+            <p className="text-lg font-bold font-mono text-black">{projections.futureSavingsRate}%</p>
+          </div>
+        </div>
       </div>
-      <div className="flex justify-between mt-1">
-        <span className="text-xs text-gray-600">Savings Rate</span>
-        <span className="text-xs font-medium text-black">{data.savingsRate}%</span>
+      
+      <div className="text-xs text-gray-700 font-mono mt-2">
+        <p>Assumptions: {SALARY_GROWTH_RATE * 100}% annual salary growth, {INFLATION_RATE * 100}% annual inflation</p>
       </div>
     </div>
   );

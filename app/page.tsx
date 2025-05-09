@@ -1,7 +1,7 @@
 "use client";
 import { useState } from 'react';
 
-// Define types locally since '../lib/types' cannot be found
+// Define UserFinancialData interface to include all needed properties
 interface UserFinancialData {
   income: number;
   age: number;
@@ -14,8 +14,7 @@ interface UserFinancialData {
   monthlySavings?: number;
   investments: Array<{type: string; amount: number}>;
   savings: number;
-  dependents: any; // Added missing property from original code
-  // Add any other properties needed
+  dependents: any;
 }
 
 // Dashboard components
@@ -42,6 +41,11 @@ export default function Home() {
     setError(null);
     
     try {
+      // Calculate monthlySavings if not provided
+      if (!data.monthlySavings) {
+        data.monthlySavings = data.income - data.expenses;
+      }
+      
       // Store the user data directly
       setUserData(data);
       setIsLoading(false);
@@ -95,6 +99,7 @@ export default function Home() {
             <Card className="p-4">
               <IncomeVsExpenses 
                 title="Income vs Expenses"
+                userData={userData}
                 income={userData.income}
                 expenses={userData.expenses}
                 monthlySavings={userData.monthlySavings}
@@ -113,6 +118,7 @@ export default function Home() {
             <Card className="p-4">
               <DebtTracker 
                 title="Debt Tracker"
+                userData={userData}
                 debts={userData.debts}
                 liabilities={userData.liabilities}
               />
@@ -122,6 +128,7 @@ export default function Home() {
             <Card className="p-4">
               <InvestmentAllocation 
                 title="Investment Allocation"
+                userData={userData}
                 investments={userData.investments}
                 income={userData.income}
                 age={userData.age}
@@ -133,8 +140,9 @@ export default function Home() {
             <Card className="p-4">
               <InvestmentVsReturns 
                 title="Investment vs Returns"
+                userData={userData}
                 investments={userData.investments}
-                monthlySavings={userData.monthlySavings || userData.income - userData.expenses}
+                monthlySavings={userData.monthlySavings}
                 timeHorizon={userData.timeHorizon}
               />
             </Card>
@@ -150,6 +158,7 @@ export default function Home() {
             <Card className="p-4">
               <EmergencyFund 
                 title="Emergency Fund"
+                userData={userData}
                 expenses={userData.expenses}
                 savings={userData.savings}
                 income={userData.income}
@@ -160,6 +169,7 @@ export default function Home() {
             <Card className="p-4">
               <Insurance 
                 title="Insurance"
+                userData={userData}
                 age={userData.age}
                 income={userData.income}
                 liabilities={userData.liabilities}
@@ -171,8 +181,9 @@ export default function Home() {
             <Card className="p-4">
               <MilestoneTracker 
                 title="Financial Milestones"
+                userData={userData}
                 financialGoals={userData.financialGoals}
-                monthlySavings={userData.monthlySavings || userData.income - userData.expenses}
+                monthlySavings={userData.monthlySavings}
                 timeHorizon={userData.timeHorizon}
               />
             </Card>
