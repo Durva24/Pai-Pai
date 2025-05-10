@@ -17,11 +17,17 @@ const IncomeExpensePrediction: React.FC<IncomeExpensePredictionProps> = ({
   expenses, 
   monthlySavings
 }) => {
-  // Calculate savings if not directly provided
-  const calculatedSavings = monthlySavings !== undefined ? monthlySavings : income - expenses;
+  // Ensure income and expenses are non-negative
+  const safeIncome = Math.max(0, income);
+  const safeExpenses = Math.max(0, expenses);
+  
+  // Calculate savings if not directly provided, ensure it's non-negative
+  const calculatedSavings = monthlySavings !== undefined 
+    ? Math.max(0, monthlySavings) 
+    : Math.max(0, safeIncome - safeExpenses);
   
   // Calculate savings rate as a percentage
-  const savingsRate = income > 0 ? Math.round((calculatedSavings / income) * 100) : 0;
+  const savingsRate = safeIncome > 0 ? Math.round((calculatedSavings / safeIncome) * 100) : 0;
   
   // Constants for projections
   const INFLATION_RATE = 0.04; // 4.0% annual inflation
@@ -32,8 +38,8 @@ const IncomeExpensePrediction: React.FC<IncomeExpensePredictionProps> = ({
   
   // Calculate projections for the time horizon
   const calculateProjections = () => {
-    let projectedIncome = income;
-    let projectedExpenses = expenses;
+    let projectedIncome = safeIncome;
+    let projectedExpenses = safeExpenses;
     
     // Calculate final values after time horizon years
     for (let year = 1; year <= timeHorizon; year++) {
@@ -41,11 +47,17 @@ const IncomeExpensePrediction: React.FC<IncomeExpensePredictionProps> = ({
       projectedExpenses = projectedExpenses * (1 + INFLATION_RATE);
     }
     
+    // Ensure projected values are non-negative
+    const futureSavings = Math.max(0, projectedIncome - projectedExpenses);
+    const futureSavingsRate = projectedIncome > 0 
+      ? Math.round((futureSavings / projectedIncome) * 100) 
+      : 0;
+    
     return {
-      futureIncome: projectedIncome,
-      futureExpenses: projectedExpenses,
-      futureSavings: projectedIncome - projectedExpenses,
-      futureSavingsRate: Math.round(((projectedIncome - projectedExpenses) / projectedIncome) * 100)
+      futureIncome: Math.max(0, projectedIncome),
+      futureExpenses: Math.max(0, projectedExpenses),
+      futureSavings,
+      futureSavingsRate
     };
   };
   

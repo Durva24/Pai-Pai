@@ -8,12 +8,12 @@ interface UserFinancialData {
   age: number;
   expenses: number;
   location: string;
-  debts: number;
+  debts: Array<{name: string; amount: number; interest: number}>;
   liabilities: number;
   financialGoals: string[];
   timeHorizon: number;
   monthlySavings?: number;
-  [key: string]: number | string | string[] | undefined; // Add index signature
+  [key: string]: number | string | string[] | any; // Add index signature to accommodate any property
 }
 
 interface FinancialGoal {
@@ -50,6 +50,7 @@ interface NumberInputProps {
 
 interface FinancialInputSidebarProps {
   onDataSubmit: (data: UserFinancialData) => void;
+  isLoading: boolean;
 }
 
 // Aesthetic emojis for different financial categories
@@ -88,7 +89,7 @@ const FIELD_CONFIGS: FieldConfigurations = {
   income: { min: 1000, max: 10000000, step: 1000, increment: 1000 },
   age: { min: 18, max: 100, step: 1, increment: 1 },
   expenses: { min: 0, max: 5000000, step: 1000, increment: 1000 },
-  debts: { min: 0, max: 10000000, step: 10000, increment: 10000 },
+  debtAmount: { min: 0, max: 10000000, step: 10000, increment: 10000 },
   liabilities: { min: 0, max: 10000000, step: 10000, increment: 10000 },
   timeHorizon: { min: 1, max: 40, step: 1, increment: 1 }
 };
@@ -98,15 +99,15 @@ const formatIndianCurrency = (amount: number): string => {
   return `₹${amount.toLocaleString('en-IN')}`;
 };
 
-const FinancialInputSidebar: React.FC<FinancialInputSidebarProps> = ({ onDataSubmit }) => {
-  const [loading, setLoading] = useState<boolean>(false);
+const Form: React.FC<FinancialInputSidebarProps> = ({ onDataSubmit, isLoading }) => {
   const [showAdvanced, setShowAdvanced] = useState<boolean>(false);
-  const [formData, setFormData] = useState<UserFinancialData>({
+  const [formData, setFormData] = useState<any>({
     income: 30000,
     age: 30,
     expenses: 15000,
     location: 'Delhi',
-    debts: 0,
+    debtAmount: 0,
+    debtInterest: 10,
     liabilities: 0,
     financialGoals: ['phone', 'car'],
     timeHorizon: 15,
@@ -121,7 +122,7 @@ const FinancialInputSidebar: React.FC<FinancialInputSidebarProps> = ({ onDataSub
   }, [formData.income, formData.expenses]);
 
   const handleNumberChange = (field: string, value: number): void => {
-    const config = FIELD_CONFIGS[field];
+    const config = FIELD_CONFIGS[field] || { min: 0, max: 1000000, step: 1, increment: 1 };
     // Ensure value is within bounds
     const boundedValue = Math.max(config.min, Math.min(config.max, value));
     
@@ -143,7 +144,7 @@ const FinancialInputSidebar: React.FC<FinancialInputSidebarProps> = ({ onDataSub
   const handleGoalToggle = (goalId: string): void => {
     setFormData(prev => {
       const updatedGoals = prev.financialGoals.includes(goalId)
-        ? prev.financialGoals.filter(g => g !== goalId)
+        ? prev.financialGoals.filter((g: string) => g !== goalId)
         : [...prev.financialGoals, goalId];
       
       return {
@@ -155,7 +156,7 @@ const FinancialInputSidebar: React.FC<FinancialInputSidebarProps> = ({ onDataSub
 
   // Smart value adjustments based on field type
   const incrementValue = (field: string): void => {
-    const config = FIELD_CONFIGS[field];
+    const config = FIELD_CONFIGS[field] || { min: 0, max: 1000000, step: 1, increment: 1 };
     setFormData(prev => {
       const currentValue = prev[field] as number;
       return {
@@ -166,7 +167,7 @@ const FinancialInputSidebar: React.FC<FinancialInputSidebarProps> = ({ onDataSub
   };
 
   const decrementValue = (field: string): void => {
-    const config = FIELD_CONFIGS[field];
+    const config = FIELD_CONFIGS[field] || { min: 0, max: 1000000, step: 1, increment: 1 };
     setFormData(prev => {
       const currentValue = prev[field] as number;
       return {
@@ -177,14 +178,32 @@ const FinancialInputSidebar: React.FC<FinancialInputSidebarProps> = ({ onDataSub
   };
 
   const handleSubmit = (): void => {
-    setLoading(true);
     try {
-      // Pass the form data directly to the parent component
-      onDataSubmit(formData);
+      // Create a proper data structure for submission
+      const submissionData: UserFinancialData = {
+        income: formData.income,
+        age: formData.age,
+        expenses: formData.expenses,
+        location: formData.location,
+        debts: [
+          {
+            name: 'General Debt', 
+            amount: formData.debtAmount || 0, 
+            interest: formData.debtInterest || 10
+          }
+        ],
+        liabilities: formData.liabilities,
+        financialGoals: formData.financialGoals,
+        timeHorizon: formData.timeHorizon,
+        monthlySavings: formData.income - formData.expenses,
+        // Adding empty investments array to ensure component compatibility
+        investments: []
+      };
+      
+      // Pass the form data to the parent component
+      onDataSubmit(submissionData);
     } catch (error) {
       console.error('Error submitting data:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -432,12 +451,12 @@ const FinancialInputSidebar: React.FC<FinancialInputSidebarProps> = ({ onDataSub
       <button 
         className="w-full py-3 px-3 relative overflow-hidden group bg-black text-white text-xs font-medium rounded-lg transition-all duration-300 shadow-md hover:shadow-lg mb-3"
         onClick={handleSubmit}
-        disabled={loading}
+        disabled={isLoading}
         aria-label="Generate financial plan"
         type="button"
       >
         <span className="relative z-10">
-          {loading ? 'Generating Plan...' : 'Generate Financial Plan'}
+          {isLoading ? 'Generating Plan...' : 'Generate Financial Plan'}
         </span>
         <span className="absolute left-0 bottom-0 h-full bg-gray-800 w-0 transition-all duration-300 group-hover:w-full"></span>
       </button>
@@ -478,16 +497,16 @@ const FinancialInputSidebar: React.FC<FinancialInputSidebarProps> = ({ onDataSub
           </div>
           
           <NumberInput 
-            label="Total Debts" 
-            value={formData.debts} 
-            onChange={(value) => handleNumberChange('debts', value)}
-            onIncrement={() => incrementValue('debts')}
-            onDecrement={() => decrementValue('debts')} 
+            label="Debt Amount" 
+            value={formData.debtAmount} 
+            onChange={(value) => handleNumberChange('debtAmount', value)}
+            onIncrement={() => incrementValue('debtAmount')}
+            onDecrement={() => decrementValue('debtAmount')} 
             emoji={FINANCIAL_EMOJIS.debts}
-            field="debts"
-            step={FIELD_CONFIGS.debts.step}
-            min={FIELD_CONFIGS.debts.min}
-            max={FIELD_CONFIGS.debts.max}
+            field="debtAmount"
+            step={FIELD_CONFIGS.debtAmount.step}
+            min={FIELD_CONFIGS.debtAmount.min}
+            max={FIELD_CONFIGS.debtAmount.max}
             isCurrency={true}
           />
           
@@ -539,4 +558,4 @@ const FinancialInputSidebar: React.FC<FinancialInputSidebarProps> = ({ onDataSub
   );
 };
 
-export default FinancialInputSidebar;
+export default Form;

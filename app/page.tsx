@@ -12,9 +12,9 @@ interface UserFinancialData {
   financialGoals: string[];
   timeHorizon: number;
   monthlySavings?: number;
-  investments: Array<{type: string; amount: number}>;
-  savings: number;
-  dependents: any;
+  investments?: Array<{type: string; amount: number}>;
+  savings?: number;
+  dependents?: any;
 }
 
 // Dashboard components
@@ -46,7 +46,17 @@ export default function Home() {
         data.monthlySavings = data.income - data.expenses;
       }
       
-      // Store the user data directly
+      // Ensure investments exist
+      if (!data.investments) {
+        data.investments = [];
+      }
+      
+      // Ensure savings exist
+      if (data.savings === undefined) {
+        data.savings = data.monthlySavings * 3; // Default to 3 months of savings as emergency fund
+      }
+      
+      // Store the user data
       setUserData(data);
       setIsLoading(false);
     } catch (err) {

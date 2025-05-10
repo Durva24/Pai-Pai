@@ -248,9 +248,8 @@ const Funds: React.FC<FundsProps> = ({ title, userData }) => {
 const renderFunds = (title: string, fundsData: FundItem[]) => {
   return (
     <div className="w-full">
-      <div className="flex items-center gap-2 mb-4">
-        <Home size={20} color="black" />
-        <h2 className="text-xl font-medium tracking-wide text-black">{title}</h2>
+      <div className="mb-4">
+        <h2 className="text-xl font-bold tracking-wide text-black">{title}</h2>
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
