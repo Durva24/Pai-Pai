@@ -1,78 +1,102 @@
-'use client';
+import { useEffect, useState } from 'react';
 
-import { Card } from '@/app/components/ui/card';
+export default function FinancialOverviewCards() {
+  const [financialData, setFinancialData] = useState({
+    totalInvested: 0,
+    totalReturns: 0,
+    netWorth: 0
+  });
 
-interface OverviewProps {
-  title: string;
-  overviewData?: {
-    netWorth: number;
-    savingsRate: number;
-    investmentRate: number;
-    monthlyIncome: number;
-    monthlyExpenses: number;
-    monthlySavings: number;
-  };
-}
+  useEffect(() => {
+    // Function to calculate all financial data
+    const calculateFinancialData = () => {
+      // Get investment data
+      const investmentData = window.investmentData || {
+        totalInvested: 0,
+        totalReturned: 0,
+        totalReturns: 0
+      };
+      
+      // Get financial planning data
+      const totalInvestments = window.finPlanTotalInvestments || 0;
+      const totalReturns = window.finPlanTotalReturns || 0;
+      
+      // Calculate total invested amount from all sources
+      const totalInvested = investmentData.totalInvested + totalInvestments;
+      
+      // Calculate total returns from all sources
+      const totalReturnAmount = investmentData.totalReturns + totalReturns;
+      
+      // Calculate net worth (total invested + total returns)
+      const netWorth = totalInvested + totalReturnAmount;
+      
+      setFinancialData({
+        totalInvested,
+        totalReturns: totalReturnAmount,
+        netWorth
+      });
+    };
+    
+    // Calculate data initially
+    calculateFinancialData();
+    
+    // Set up event listener for finance data updates
+    const handleFinanceUpdate = () => {
+      calculateFinancialData();
+    };
+    
+    window.addEventListener('financeDataUpdated', handleFinanceUpdate);
+    
+    // Cleanup listener on component unmount
+    return () => {
+      window.removeEventListener('financeDataUpdated', handleFinanceUpdate);
+    };
+  }, []);
 
-const Overview: React.FC<OverviewProps> = ({ title, overviewData }) => {
-  // Use placeholder data if none provided
-  const data = overviewData || {
-    netWorth: 1250000,
-    savingsRate: 35,
-    investmentRate: 25,
-    monthlyIncome: 60000,
-    monthlyExpenses: 39000,
-    monthlySavings: 21000
+  // Function to format currency with Indian format and abbreviations (K, lacs, cr)
+  const formatCurrency = (amount) => {
+    // Handle negative values
+    const value = amount < 0 ? 0 : amount;
+    
+    // Format based on value range
+    if (value >= 10000000) { // 1 crore and above
+      return `₹${(value / 10000000).toFixed(2)}<span class="text-xs font-mono ml-1">cr</span>`;
+    } else if (value >= 100000) { // 1 lac and above
+      return `₹${(value / 100000).toFixed(2)}<span class="text-xs font-mono ml-1">lac</span>`;
+    } else if (value >= 1000) { // 1K and above
+      return `₹${(value / 1000).toFixed(2)}<span class="text-xs font-mono ml-1">K</span>`;
+    } else {
+      return `₹${value.toFixed(2)}`;
+    }
   };
 
   return (
-    <div className="w-full">
-      <h2 className="text-xl font-medium tracking-wide text-black mb-4">{title}</h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-        <div className="bg-gray-50 p-4 rounded-lg border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium tracking-wide text-black">Net Worth</span>
-            <span className="text-sm font-bold text-black">₹{data.netWorth.toLocaleString('en-IN')}</span>
-          </div>
+    <div className="w-full bg-gray-50">
+      <div className="flex flex-row space-x-4 w-full">
+        {/* Card 1: Total Amount Invested */}
+        <div className="bg-white rounded-lg shadow-md p-4 flex-1">
+          <h3 className="text-gray-500 font-mono text-xs uppercase tracking-wider mb-2">Total Amount Invested</h3>
+          <p className="font-mono text-black text-xl font-bold"
+             dangerouslySetInnerHTML={{ __html: formatCurrency(financialData.totalInvested) }}>
+          </p>
         </div>
         
-        <div className="bg-gray-50 p-4 rounded-lg border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium tracking-wide text-black">Savings Rate</span>
-            <span className="text-sm font-bold text-black">{data.savingsRate}%</span>
-          </div>
+        {/* Card 2: Profit Made */}
+        <div className="bg-white rounded-lg shadow-md p-4 flex-1">
+          <h3 className="text-gray-500 font-mono text-xs uppercase tracking-wider mb-2">Profit Made</h3>
+          <p className="font-mono text-black text-xl font-bold"
+             dangerouslySetInnerHTML={{ __html: formatCurrency(financialData.totalReturns) }}>
+          </p>
         </div>
         
-        <div className="bg-gray-50 p-4 rounded-lg border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium tracking-wide text-black">Investment Rate</span>
-            <span className="text-sm font-bold text-black">{data.investmentRate}%</span>
-          </div>
-        </div>
-        
-        <div className="bg-gray-50 p-4 rounded-lg border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium tracking-wide text-black">Monthly Income</span>
-            <span className="text-sm font-bold text-black">₹{data.monthlyIncome.toLocaleString('en-IN')}</span>
-          </div>
-        </div>
-        
-        <div className="bg-gray-50 p-4 rounded-lg border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium tracking-wide text-black">Monthly Expenses</span>
-            <span className="text-sm font-bold text-black">₹{data.monthlyExpenses.toLocaleString('en-IN')}</span>
-          </div>
-        </div>
-        
-        <div className="bg-gray-50 p-4 rounded-lg border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium tracking-wide text-black">Monthly Savings</span>
-            <span className="text-sm font-bold text-black">₹{data.monthlySavings.toLocaleString('en-IN')}</span>
-          </div>
+        {/* Card 3: Net Worth */}
+        <div className="bg-white rounded-lg shadow-md p-4 flex-1">
+          <h3 className="text-gray-500 font-mono text-xs uppercase tracking-wider mb-2">Net Worth</h3>
+          <p className="font-mono text-black text-xl font-bold"
+             dangerouslySetInnerHTML={{ __html: formatCurrency(financialData.netWorth) }}>
+          </p>
         </div>
       </div>
     </div>
   );
-};
-
-export default Overview;
+}

@@ -6,26 +6,28 @@ import { AlertTriangle } from 'lucide-react';
 interface InvestmentAllocationProps {
   title: string;
   userData: {
-    income: number;
-    savings?: number;
-    timeHorizon: number;
+    income: number;       // Monthly income
+    expenses: number;     // Monthly expenses
+    timeHorizon: number;  // Investment time horizon in years
+    age: number;          // User's age
+    monthlySavings?: number; // Monthly savings (income - expenses)
   };
 }
 
-export default function ProfessionalInvestmentAllocation({ title, userData }: InvestmentAllocationProps) {
+export default function InvestmentAllocation({ title, userData }: InvestmentAllocationProps) {
   const [allocationData, setAllocationData] = useState<any>(null);
 
   useEffect(() => {
     if (userData) {
-      const { income, savings = 0, timeHorizon } = userData;
+      const { income, expenses, timeHorizon, age } = userData;
       
-      // Use 50% of savings for investment instead of 50% of salary
-      let investableAmount = savings * 0.5;
+      // Calculate monthly savings (income - expenses)
+      const monthlySavings = userData.monthlySavings || (income - expenses);
       
-      // Calculate monthly investment amount (used for pie chart)
-      const monthlyInvestment = investableAmount / 12;
+      // Use 50% of monthly savings for investment
+      const recommendedMonthlyInvestment = monthlySavings * 0.5;
       
-      // Define the allocation based on income criteria
+      // Define the allocation based on income criteria only
       let allocation = {
         mutualFunds: {
           percentage: 0,
@@ -38,72 +40,73 @@ export default function ProfessionalInvestmentAllocation({ title, userData }: In
         crypto: { percentage: 0, return: 50 }
       };
       
-      // Apply allocation strategy based on income
-      const annualIncome = income * 12; // Assuming income is monthly
-      
-      if (annualIncome < 30000 && savings < 15000) {
-        // Scenario 1
+      // Apply allocation strategy based on monthly income
+      if (income < 25000) {
+        // Scenario 1 - Low income
         allocation.mutualFunds.percentage = 80;
-        allocation.mutualFunds.largeCap.percentage = 60;
-        allocation.mutualFunds.midCap.percentage = 30;
-        allocation.mutualFunds.smallCap.percentage = 10;
+        allocation.mutualFunds.largeCap.percentage = 48;
+        allocation.mutualFunds.midCap.percentage = 24;
+        allocation.mutualFunds.smallCap.percentage = 8;
         allocation.gold.percentage = 20;
-      } else if (annualIncome < 100000 && savings < 50000) {
-        // Scenario 2
+      } else if (income < 100000) {
+        // Scenario 2 - Medium income
         allocation.mutualFunds.percentage = 60;
-        allocation.mutualFunds.largeCap.percentage = 50;
-        allocation.mutualFunds.midCap.percentage = 30;
-        allocation.mutualFunds.smallCap.percentage = 20;
+        allocation.mutualFunds.largeCap.percentage = 30;
+        allocation.mutualFunds.midCap.percentage = 18;
+        allocation.mutualFunds.smallCap.percentage = 12;
         allocation.gold.percentage = 20;
         allocation.stocks.percentage = 20;
       } else {
-        // Scenario 3
-        allocation.mutualFunds.percentage = 40;
-        allocation.mutualFunds.largeCap.percentage = 45;
-        allocation.mutualFunds.midCap.percentage = 25;
-        allocation.mutualFunds.smallCap.percentage = 30;
+        // Scenario 3 - High income
+        allocation.mutualFunds.percentage = 50;
+        allocation.mutualFunds.largeCap.percentage = 22.5;
+        allocation.mutualFunds.midCap.percentage = 12.5;
+        allocation.mutualFunds.smallCap.percentage = 15;
         allocation.gold.percentage = 20;
-        allocation.stocks.percentage = 35;
+        allocation.stocks.percentage = 25;
         allocation.crypto.percentage = 5;
       }
       
       // Calculate monthly amounts for each category
-      const mutualFundsTotal = (monthlyInvestment * allocation.mutualFunds.percentage) / 100;
-      const goldAmount = (monthlyInvestment * allocation.gold.percentage) / 100;
-      const stocksAmount = (monthlyInvestment * allocation.stocks.percentage) / 100;
-      const cryptoAmount = (monthlyInvestment * allocation.crypto.percentage) / 100;
+      const mutualFundsTotal = (recommendedMonthlyInvestment * allocation.mutualFunds.percentage) / 100;
+      const goldAmount = (recommendedMonthlyInvestment * allocation.gold.percentage) / 100;
+      const stocksAmount = (recommendedMonthlyInvestment * allocation.stocks.percentage) / 100;
+      const cryptoAmount = (recommendedMonthlyInvestment * allocation.crypto.percentage) / 100;
       
       // Calculate mutual fund sub-allocations (monthly)
       const largeCapAmount = (mutualFundsTotal * allocation.mutualFunds.largeCap.percentage) / 100;
       const midCapAmount = (mutualFundsTotal * allocation.mutualFunds.midCap.percentage) / 100;
       const smallCapAmount = (mutualFundsTotal * allocation.mutualFunds.smallCap.percentage) / 100;
       
-      // Calculate returns with compounding and annual step-up
-      let totalInvestment = 0;
+      // Annual investments (monthly * 12)
+      const annualLargeCapInvestment = largeCapAmount * 12;
+      const annualMidCapInvestment = midCapAmount * 12;
+      const annualSmallCapInvestment = smallCapAmount * 12;
+      const annualGoldInvestment = goldAmount * 12;
+      const annualStocksInvestment = stocksAmount * 12;
+      const annualCryptoInvestment = cryptoAmount * 12;
+      
+      // Annual step-up rate
+      const stepUpRate = 5.5 / 100;
+      
+      // Initialize future values and investment trackers
       let largeCapFutureValue = 0;
       let midCapFutureValue = 0;
       let smallCapFutureValue = 0;
       let goldFutureValue = 0;
       let stocksFutureValue = 0;
       let cryptoFutureValue = 0;
+      let totalInvestment = 0;
       
-      // Monthly investments (annual amount divided by 12)
-      let currentLargeCapInvestment = (largeCapAmount * 12) / 12;
-      let currentMidCapInvestment = (midCapAmount * 12) / 12;
-      let currentSmallCapInvestment = (smallCapAmount * 12) / 12;
-      let currentGoldInvestment = (goldAmount * 12) / 12;
-      let currentStocksInvestment = (stocksAmount * 12) / 12;
-      let currentCryptoInvestment = (cryptoAmount * 12) / 12;
+      // Current annual investment amounts (will increase with step-up)
+      let currentLargeCapInvestment = annualLargeCapInvestment;
+      let currentMidCapInvestment = annualMidCapInvestment;
+      let currentSmallCapInvestment = annualSmallCapInvestment;
+      let currentGoldInvestment = annualGoldInvestment;
+      let currentStocksInvestment = annualStocksInvestment;
+      let currentCryptoInvestment = annualCryptoInvestment;
       
-      // Annual step-up rate
-      const stepUpRate = 5.5 / 100;
-      
-      // Track annual investment for calculations
-      let annualInvestmentTotal = (currentLargeCapInvestment + currentMidCapInvestment + 
-                                 currentSmallCapInvestment + currentGoldInvestment + 
-                                 currentStocksInvestment + currentCryptoInvestment) * 12;
-      
-      // Compound interest calculation with annual step-up
+      // Compound interest calculation with annual returns and step-up
       for (let year = 1; year <= timeHorizon; year++) {
         if (year > 1) {
           // Apply step-up for subsequent years
@@ -113,38 +116,35 @@ export default function ProfessionalInvestmentAllocation({ title, userData }: In
           currentGoldInvestment *= (1 + stepUpRate);
           currentStocksInvestment *= (1 + stepUpRate);
           currentCryptoInvestment *= (1 + stepUpRate);
-          
-          // Update annual investment total for this year
-          annualInvestmentTotal = (currentLargeCapInvestment + currentMidCapInvestment + 
-                                  currentSmallCapInvestment + currentGoldInvestment + 
-                                  currentStocksInvestment + currentCryptoInvestment) * 12;
         }
         
-        // Add to total investment
-        totalInvestment += annualInvestmentTotal;
+        // Add this year's investments to the total
+        totalInvestment += currentLargeCapInvestment + currentMidCapInvestment + 
+                          currentSmallCapInvestment + currentGoldInvestment + 
+                          currentStocksInvestment + currentCryptoInvestment;
         
-        // Calculate monthly returns and compound them
-        for (let month = 1; month <= 12; month++) {
-          // Monthly rate = annual rate / 12
-          const largeCapMonthlyRate = allocation.mutualFunds.largeCap.return / 100 / 12;
-          const midCapMonthlyRate = allocation.mutualFunds.midCap.return / 100 / 12;
-          const smallCapMonthlyRate = allocation.mutualFunds.smallCap.return / 100 / 12;
-          const goldMonthlyRate = allocation.gold.return / 100 / 12;
-          const stocksMonthlyRate = allocation.stocks.return / 100 / 12;
-          
-          // Apply monthly compounding
-          largeCapFutureValue = (largeCapFutureValue + currentLargeCapInvestment) * (1 + largeCapMonthlyRate);
-          midCapFutureValue = (midCapFutureValue + currentMidCapInvestment) * (1 + midCapMonthlyRate);
-          smallCapFutureValue = (smallCapFutureValue + currentSmallCapInvestment) * (1 + smallCapMonthlyRate);
-          goldFutureValue = (goldFutureValue + currentGoldInvestment) * (1 + goldMonthlyRate);
-          stocksFutureValue = (stocksFutureValue + currentStocksInvestment) * (1 + stocksMonthlyRate);
-          
-          // For crypto, apply high volatility simulation
-          if (currentCryptoInvestment > 0) {
-            // Simulating monthly volatility with random return between -10% and +20%
-            const volatileMonthlyReturn = Math.random() * 30 - 10;
-            cryptoFutureValue = (cryptoFutureValue + currentCryptoInvestment) * (1 + volatileMonthlyReturn / 100);
-          }
+        // Apply annual returns
+        largeCapFutureValue = Math.max(0, (largeCapFutureValue + currentLargeCapInvestment) * 
+                                      (1 + allocation.mutualFunds.largeCap.return / 100));
+        
+        midCapFutureValue = Math.max(0, (midCapFutureValue + currentMidCapInvestment) * 
+                                    (1 + allocation.mutualFunds.midCap.return / 100));
+        
+        smallCapFutureValue = Math.max(0, (smallCapFutureValue + currentSmallCapInvestment) * 
+                                      (1 + allocation.mutualFunds.smallCap.return / 100));
+        
+        goldFutureValue = Math.max(0, (goldFutureValue + currentGoldInvestment) * 
+                                  (1 + allocation.gold.return / 100));
+        
+        stocksFutureValue = Math.max(0, (stocksFutureValue + currentStocksInvestment) * 
+                                    (1 + allocation.stocks.return / 100));
+        
+        // For crypto, apply high volatility simulation
+        if (currentCryptoInvestment > 0) {
+          // Annual crypto return with volatility simulation
+          const volatileAnnualReturn = Math.random() * 150 - 50; // -50% to +100%
+          cryptoFutureValue = Math.max(0, (cryptoFutureValue + currentCryptoInvestment) * 
+                                      (1 + volatileAnnualReturn / 100));
         }
       }
       
@@ -155,26 +155,31 @@ export default function ProfessionalInvestmentAllocation({ title, userData }: In
       // Calculate overall return percentage
       const overallReturn = ((totalFutureValue - totalInvestment) / totalInvestment) * 100;
       
-      // Prepare data for pie chart (based on monthly investment)
+      // Calculate total returns (profit)
+      const totalReturns = totalFutureValue - totalInvestment;
+      
+      // Prepare data for pie chart using shades of black
       const pieData = [
-        { name: 'Large Cap', value: largeCapAmount, color: '#0F4C81' },
-        { name: 'Mid Cap', value: midCapAmount, color: '#3A6EA5' },
-        { name: 'Small Cap', value: smallCapAmount, color: '#6F90BD' },
-        { name: 'Gold', value: goldAmount, color: '#FFB347' },
-        { name: 'Stocks', value: stocksAmount, color: '#4DAF7C' }
+        { name: 'Large Cap', value: largeCapAmount, color: '#000000' },
+        { name: 'Mid Cap', value: midCapAmount, color: '#333333' },
+        { name: 'Small Cap', value: smallCapAmount, color: '#555555' },
+        { name: 'Gold', value: goldAmount, color: '#777777' },
+        { name: 'Stocks', value: stocksAmount, color: '#999999' }
       ];
       
       // Only add crypto if it exists in the allocation
       if (cryptoAmount > 0) {
-        pieData.push({ name: 'Crypto', value: cryptoAmount, color: '#9C4F96' });
+        pieData.push({ name: 'Crypto', value: cryptoAmount, color: '#bbbbbb' });
       }
       
       // Remove any categories with zero value
       const filteredPieData = pieData.filter(item => item.value > 0);
       
+      // Save data to component state
       setAllocationData({
         allocation,
         pieData: filteredPieData,
+        monthlySavings,
         monthlyInvestment: {
           largeCap: largeCapAmount,
           midCap: midCapAmount,
@@ -182,10 +187,7 @@ export default function ProfessionalInvestmentAllocation({ title, userData }: In
           gold: goldAmount,
           stocks: stocksAmount,
           crypto: cryptoAmount,
-          total: monthlyInvestment
-        },
-        initialInvestment: {
-          total: investableAmount
+          total: recommendedMonthlyInvestment
         },
         futureValue: {
           largeCap: largeCapFutureValue,
@@ -197,9 +199,17 @@ export default function ProfessionalInvestmentAllocation({ title, userData }: In
           total: totalFutureValue
         },
         totalInvestment,
+        totalReturns,
         overallReturn,
         timeHorizon
       });
+      
+      // Save total invested and returns to window for other components to access
+      window.investmentData = {
+        totalInvested: totalInvestment,
+        totalReturned: totalFutureValue,
+        totalReturns: totalReturns
+      };
     }
   }, [userData]);
 
@@ -238,24 +248,6 @@ export default function ProfessionalInvestmentAllocation({ title, userData }: In
   return (
     <div className="font-mono text-black">
       <h2 className="text-xl font-semibold mb-4">{title}</h2>
-      
-      {/* Investment Summary */}
-      <div className="bg-white rounded-lg p-4 shadow mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="text-center p-3 bg-gray-50 rounded">
-            <p className="text-sm text-gray-500">Total Savings</p>
-            <p className="text-lg font-semibold">{formatCurrency(userData.savings || 0)}</p>
-          </div>
-          <div className="text-center p-3 bg-gray-50 rounded">
-            <p className="text-sm text-gray-500">Investment Amount (50%)</p>
-            <p className="text-lg font-semibold">{formatCurrency(allocationData.initialInvestment.total)}</p>
-          </div>
-          <div className="text-center p-3 bg-gray-50 rounded">
-            <p className="text-sm text-gray-500">Monthly Investment</p>
-            <p className="text-lg font-semibold">{formatCurrency(allocationData.monthlyInvestment.total)}</p>
-          </div>
-        </div>
-      </div>
       
       {/* Allocation Chart and Details */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -361,30 +353,10 @@ export default function ProfessionalInvestmentAllocation({ title, userData }: In
             </div>
             <div className="text-right mt-3">
               <p className="text-sm font-semibold">Total Return: {formatPercentage(allocationData.overallReturn)}</p>
+              <p className="text-sm">Total Invested: {formatCurrency(allocationData.totalInvestment)}</p>
+              <p className="text-sm">Total Profit: {formatCurrency(allocationData.totalReturns)}</p>
             </div>
           </div>
-          
-          {/* Annual Step Up Note */}
-          <div className="bg-white rounded-lg p-4 shadow">
-            <p className="text-sm">
-              Your investment plan includes a 5.5% annual step-up in contribution amount over {allocationData.timeHorizon} years.
-            </p>
-            <p className="text-sm mt-2">
-              <strong>Note:</strong> Only 50% of your total savings are allocated for investments. The remaining 50% is kept as liquid reserves.
-            </p>
-          </div>
-          
-          {/* Crypto Warning */}
-          {allocationData.monthlyInvestment.crypto > 0 && (
-            <div className="bg-white rounded-lg p-4 shadow mt-4">
-              <div className="flex items-center">
-                <AlertTriangle className="mr-2 text-yellow-500" size={16} />
-                <p className="text-sm text-yellow-600">
-                  Cryptocurrency investments are highly volatile. Projected returns may vary significantly.
-                </p>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>

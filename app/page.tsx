@@ -21,9 +21,8 @@ interface UserFinancialData {
 import Overview from '@/app/components/dashboard/Overview';
 import IncomeVsExpenses from '@/app/components/dashboard/IncomevsExpenses';
 import EmergencyFund from '@/app/components/dashboard/EmergencyFund';
-import InvestmentVsReturns from '@/app/components/dashboard/InvestmentVsReturns';
+import InvestmentVsReturns from '@/app/components/dashboard/InvestmentVsReturnsGraph';
 import InvestmentAllocation from '@/app/components/dashboard/InvestmentAllocation';
-import MilestoneTracker from '@/app/components/dashboard/Milestones';
 import DebtTracker from '@/app/components/dashboard/DebtTracker';
 import Quote from '@/app/components/dashboard/Quote';
 import Form from '@/app/components/form/Form';
@@ -105,6 +104,17 @@ export default function Home() {
               />
             </Card>
             
+            {/* Investment vs Returns Graph - Moved below Overview */}
+            <Card className="p-4">
+              <InvestmentVsReturns 
+                title="Investment vs Returns"
+                userData={userData}
+                investments={userData.investments}
+                monthlySavings={userData.monthlySavings}
+                timeHorizon={userData.timeHorizon}
+              />
+            </Card>
+            
             {/* Income vs Expenses */}
             <Card className="p-4">
               <IncomeVsExpenses 
@@ -145,17 +155,6 @@ export default function Home() {
                 timeHorizon={userData.timeHorizon}
               />
             </Card>
-            
-            {/* Investment vs Returns Graph */}
-            <Card className="p-4">
-              <InvestmentVsReturns 
-                title="Investment vs Returns"
-                userData={userData}
-                investments={userData.investments}
-                monthlySavings={userData.monthlySavings}
-                timeHorizon={userData.timeHorizon}
-              />
-            </Card>
           </div>
         )}
       </div>
@@ -181,17 +180,6 @@ export default function Home() {
                 income={userData.income}
                 liabilities={userData.liabilities}
                 dependents={userData.dependents}
-              />
-            </Card>
-            
-            {/* Milestones */}
-            <Card className="p-4">
-              <MilestoneTracker 
-                title="Financial Milestones"
-                userData={userData}
-                financialGoals={userData.financialGoals}
-                monthlySavings={userData.monthlySavings}
-                timeHorizon={userData.timeHorizon}
               />
             </Card>
           </div>
