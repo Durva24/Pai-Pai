@@ -81,7 +81,6 @@ const FINANCIAL_GOALS: FinancialGoal[] = [
   { id: 'education', label: 'Education', emoji: '🎓' },
   { id: 'vacation', label: 'Vacation', emoji: '✈️' },
   { id: 'wedding', label: 'Wedding', emoji: '💍' }
-  // Removed emergency fund and retirement as requested
 ];
 
 // Field configurations for validation and increment/decrement behavior
@@ -101,13 +100,14 @@ const formatIndianCurrency = (amount: number): string => {
 
 const FinancialInputSidebar: React.FC<FinancialInputSidebarProps> = ({ onDataSubmit }) => {
   const [loading, setLoading] = useState<boolean>(false);
+  const [showAdvanced, setShowAdvanced] = useState<boolean>(false);
   const [formData, setFormData] = useState<UserFinancialData>({
     income: 30000,
     age: 30,
     expenses: 15000,
     location: 'Delhi',
-    debts: 500000,
-    liabilities: 700000,
+    debts: 0,
+    liabilities: 0,
     financialGoals: ['phone', 'car'],
     timeHorizon: 15,
   });
@@ -337,7 +337,7 @@ const FinancialInputSidebar: React.FC<FinancialInputSidebarProps> = ({ onDataSub
   };
 
   return (
-    <div className="w-78 h-screen bg-white border-r border-gray-100 p-2 overflow-y-auto font-mono" style={{
+    <div className="w-72 h-screen bg-white border-r border-gray-100 p-1 overflow-y-auto font-mono" style={{
       scrollbarWidth: 'thin',
       scrollbarColor: '#cbd5e0 #ffffff',
     }}>
@@ -369,6 +369,7 @@ const FinancialInputSidebar: React.FC<FinancialInputSidebarProps> = ({ onDataSub
         <p className="text-xs text-black">Financial Planning Tool</p>
       </div>
       
+      {/* Core Form Fields */}
       <div className="mb-3 space-y-2">
         <NumberInput 
           label="Monthly Income" 
@@ -412,53 +413,6 @@ const FinancialInputSidebar: React.FC<FinancialInputSidebarProps> = ({ onDataSub
           isCurrency={true}
         />
         
-        <div className="mb-2 bg-gray-50 p-2 rounded-lg border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between mb-1">
-            <div className="flex items-center">
-              <span className="mr-1 text-md text-black">{FINANCIAL_EMOJIS.location}</span>
-              <span className="text-xs font-medium tracking-wide text-black">Location</span>
-            </div>
-          </div>
-          <select 
-            className="w-full py-1.5 px-2 border border-gray-200 rounded-md bg-white text-xs text-black focus:outline-none focus:border-black transition-colors"
-            value={formData.location}
-            onChange={handleLocationChange}
-            aria-label="Select your location"
-          >
-            {INDIAN_CITIES.map(city => (
-              <option key={city} value={city}>{city}</option>
-            ))}
-          </select>
-        </div>
-        
-        <NumberInput 
-          label="Total Debts" 
-          value={formData.debts} 
-          onChange={(value) => handleNumberChange('debts', value)}
-          onIncrement={() => incrementValue('debts')}
-          onDecrement={() => decrementValue('debts')} 
-          emoji={FINANCIAL_EMOJIS.debts}
-          field="debts"
-          step={FIELD_CONFIGS.debts.step}
-          min={FIELD_CONFIGS.debts.min}
-          max={FIELD_CONFIGS.debts.max}
-          isCurrency={true}
-        />
-        
-        <NumberInput 
-          label="Total Liabilities" 
-          value={formData.liabilities} 
-          onChange={(value) => handleNumberChange('liabilities', value)}
-          onIncrement={() => incrementValue('liabilities')}
-          onDecrement={() => decrementValue('liabilities')} 
-          emoji={FINANCIAL_EMOJIS.liabilities}
-          field="liabilities"
-          step={FIELD_CONFIGS.liabilities.step}
-          min={FIELD_CONFIGS.liabilities.min}
-          max={FIELD_CONFIGS.liabilities.max}
-          isCurrency={true}
-        />
-        
         <NumberInput 
           label="Time Horizon" 
           value={formData.timeHorizon} 
@@ -472,46 +426,11 @@ const FinancialInputSidebar: React.FC<FinancialInputSidebarProps> = ({ onDataSub
           max={FIELD_CONFIGS.timeHorizon.max}
           format={(val) => `${val} years`}
         />
-        
-        <div className="flex items-center justify-between py-2.5 px-3 bg-black text-white rounded-lg mt-2 shadow-md">
-          <span className="text-xs font-medium tracking-wide">Monthly Savings</span>
-          <span className="text-xs font-bold">
-            {formatIndianCurrency(formData.monthlySavings || (formData.income - formData.expenses))}
-          </span>
-        </div>
       </div>
       
-      <div className="mb-3">
-        <div className="flex items-center mb-2">
-          <span className="mr-1 text-md text-black">{FINANCIAL_EMOJIS.goals}</span>
-          <h3 className="text-xs font-medium tracking-wide text-black">Financial Goals</h3>
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          {FINANCIAL_GOALS.map(goal => (
-            <button
-              key={goal.id}
-              className={`flex items-center justify-between p-2 h-10 rounded-md ${formData.financialGoals.includes(goal.id) ? 'bg-black text-white shadow-md' : 'bg-gray-50 text-black border border-gray-100 shadow-sm'} transition-all duration-200 hover:border-gray-300`}
-              onClick={() => handleGoalToggle(goal.id)}
-              aria-pressed={formData.financialGoals.includes(goal.id)}
-              aria-label={`Select ${goal.label} as a financial goal`}
-              type="button"
-            >
-              <div className="flex items-center">
-                <span className="mr-1 text-md">{goal.emoji}</span>
-                <span className="text-xs font-medium">{goal.label}</span>
-              </div>
-              <div className={`w-3 h-3 rounded-full border ${formData.financialGoals.includes(goal.id) ? 'bg-white border-white' : 'border-gray-300'}`}>
-                {formData.financialGoals.includes(goal.id) && (
-                  <div className="w-full h-full rounded-full bg-black"></div>
-                )}
-              </div>
-            </button>
-          ))}
-        </div>
-      </div>
-      
+      {/* Submit Button */}
       <button 
-        className="w-full py-3 px-3 relative overflow-hidden group bg-black text-white text-xs font-medium rounded-lg transition-all duration-300 shadow-md hover:shadow-lg"
+        className="w-full py-3 px-3 relative overflow-hidden group bg-black text-white text-xs font-medium rounded-lg transition-all duration-300 shadow-md hover:shadow-lg mb-3"
         onClick={handleSubmit}
         disabled={loading}
         aria-label="Generate financial plan"
@@ -522,6 +441,100 @@ const FinancialInputSidebar: React.FC<FinancialInputSidebarProps> = ({ onDataSub
         </span>
         <span className="absolute left-0 bottom-0 h-full bg-gray-800 w-0 transition-all duration-300 group-hover:w-full"></span>
       </button>
+      
+      {/* Advanced Options Toggle */}
+      <div className="text-center">
+        <button 
+          onClick={() => setShowAdvanced(!showAdvanced)}
+          className="text-xs text-gray-500 hover:text-black transition-colors"
+          aria-expanded={showAdvanced}
+          aria-controls="advanced-options"
+          type="button"
+        >
+          {showAdvanced ? '▲ Hide Advanced Options' : '▼ Show Advanced Options'}
+        </button>
+      </div>
+      
+      {/* Advanced Options */}
+      {showAdvanced && (
+        <div id="advanced-options" className="mt-3 space-y-2">
+          <div className="mb-2 bg-gray-50 p-2 rounded-lg border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center">
+                <span className="mr-1 text-md text-black">{FINANCIAL_EMOJIS.location}</span>
+                <span className="text-xs font-medium tracking-wide text-black">Location</span>
+              </div>
+            </div>
+            <select 
+              className="w-full py-1.5 px-2 border border-gray-200 rounded-md bg-white text-xs text-black focus:outline-none focus:border-black transition-colors"
+              value={formData.location}
+              onChange={handleLocationChange}
+              aria-label="Select your location"
+            >
+              {INDIAN_CITIES.map(city => (
+                <option key={city} value={city}>{city}</option>
+              ))}
+            </select>
+          </div>
+          
+          <NumberInput 
+            label="Total Debts" 
+            value={formData.debts} 
+            onChange={(value) => handleNumberChange('debts', value)}
+            onIncrement={() => incrementValue('debts')}
+            onDecrement={() => decrementValue('debts')} 
+            emoji={FINANCIAL_EMOJIS.debts}
+            field="debts"
+            step={FIELD_CONFIGS.debts.step}
+            min={FIELD_CONFIGS.debts.min}
+            max={FIELD_CONFIGS.debts.max}
+            isCurrency={true}
+          />
+          
+          <NumberInput 
+            label="Total Liabilities" 
+            value={formData.liabilities} 
+            onChange={(value) => handleNumberChange('liabilities', value)}
+            onIncrement={() => incrementValue('liabilities')}
+            onDecrement={() => decrementValue('liabilities')} 
+            emoji={FINANCIAL_EMOJIS.liabilities}
+            field="liabilities"
+            step={FIELD_CONFIGS.liabilities.step}
+            min={FIELD_CONFIGS.liabilities.min}
+            max={FIELD_CONFIGS.liabilities.max}
+            isCurrency={true}
+          />
+          
+          <div className="mb-3">
+            <div className="flex items-center mb-2">
+              <span className="mr-1 text-md text-black">{FINANCIAL_EMOJIS.goals}</span>
+              <h3 className="text-xs font-medium tracking-wide text-black">Financial Goals</h3>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {FINANCIAL_GOALS.map(goal => (
+                <button
+                  key={goal.id}
+                  className={`flex items-center justify-between p-2 h-10 rounded-md ${formData.financialGoals.includes(goal.id) ? 'bg-black text-white shadow-md' : 'bg-gray-50 text-black border border-gray-100 shadow-sm'} transition-all duration-200 hover:border-gray-300`}
+                  onClick={() => handleGoalToggle(goal.id)}
+                  aria-pressed={formData.financialGoals.includes(goal.id)}
+                  aria-label={`Select ${goal.label} as a financial goal`}
+                  type="button"
+                >
+                  <div className="flex items-center">
+                    <span className="mr-1 text-md">{goal.emoji}</span>
+                    <span className="text-xs font-medium">{goal.label}</span>
+                  </div>
+                  <div className={`w-3 h-3 rounded-full border ${formData.financialGoals.includes(goal.id) ? 'bg-white border-white' : 'border-gray-300'}`}>
+                    {formData.financialGoals.includes(goal.id) && (
+                      <div className="w-full h-full rounded-full bg-black"></div>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

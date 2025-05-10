@@ -158,10 +158,7 @@ export default function Home() {
             <Card className="p-4">
               <EmergencyFund 
                 title="Emergency Fund"
-                userData={userData}
-                expenses={userData.expenses}
-                savings={userData.savings}
-                income={userData.income}
+                userData={userData} 
               />
             </Card>
             

@@ -2,7 +2,7 @@
 
 import React from 'react';
 
-interface IncomeVsExpensesProps {
+interface IncomeExpensePredictionProps {
   title: string;
   userData: any; // Using the userData from page.tsx
   income: number;
@@ -10,7 +10,7 @@ interface IncomeVsExpensesProps {
   monthlySavings?: number;
 }
 
-const IncomeVsExpenses: React.FC<IncomeVsExpensesProps> = ({ 
+const IncomeExpensePrediction: React.FC<IncomeExpensePredictionProps> = ({ 
   title, 
   userData,
   income, 
@@ -64,28 +64,10 @@ const IncomeVsExpenses: React.FC<IncomeVsExpensesProps> = ({
     <div className="w-full">
       <h2 className="text-xl font-bold mb-4 font-mono text-black">{title}</h2>
       
-      {/* Current Financial Status Cards */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="bg-gray-100 p-4 rounded-lg">
-          <h3 className="text-sm text-black font-mono mb-1">Monthly Income</h3>
-          <p className="text-xl font-bold font-mono text-black">{formatCurrency(income)}</p>
-        </div>
-        
-        <div className="bg-gray-100 p-4 rounded-lg">
-          <h3 className="text-sm text-black font-mono mb-1">Monthly Expenses</h3>
-          <p className="text-xl font-bold font-mono text-black">{formatCurrency(expenses)}</p>
-        </div>
-        
-        <div className="bg-gray-100 p-4 rounded-lg">
-          <h3 className="text-sm text-black font-mono mb-1">Monthly Savings</h3>
-          <p className="text-xl font-bold font-mono text-black">{formatCurrency(calculatedSavings)}</p>
-        </div>
-      </div>
-      
       {/* Savings Rate Bar - Simplified */}
       <div className="mb-6">
         <div className="flex justify-between mb-1">
-          <span className="text-sm font-mono text-black">Savings Rate</span>
+          <span className="text-sm font-mono text-black">Current Savings Rate</span>
           <span className="text-sm font-bold font-mono text-black">{savingsRate}%</span>
         </div>
         <div className="w-full bg-gray-200 rounded-full h-2">
@@ -130,4 +112,4 @@ const IncomeVsExpenses: React.FC<IncomeVsExpensesProps> = ({
   );
 };
 
-export default IncomeVsExpenses;
+export default IncomeExpensePrediction;
