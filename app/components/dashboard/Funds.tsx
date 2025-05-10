@@ -26,6 +26,11 @@ interface FundItem {
   tenure: number;
 }
 
+interface ProjectionResult {
+  totalAmount: number;
+  totalInvested: number;
+}
+
 interface FundsProps {
   title: string;
   userData: UserFinancialData;
@@ -127,8 +132,8 @@ const Funds: React.FC<FundsProps> = ({ title, userData }) => {
   const dreamFundMonthly = Math.max(0, monthlyInvestmentTotal * dreamFundPriority);
   
   // Properly calculate compound interest with annual salary growth
-  const calculateProjectedAmount = (monthlyAmount: number, years: number) => {
-    if (years <= 0 || monthlyAmount <= 0) return 0;
+  const calculateProjectedAmount = (monthlyAmount: number, years: number): ProjectionResult => {
+    if (years <= 0 || monthlyAmount <= 0) return { totalAmount: 0, totalInvested: 0 };
     
     let totalAmount = 0;
     let currentMonthlyAmount = monthlyAmount;

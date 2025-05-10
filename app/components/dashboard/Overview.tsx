@@ -1,5 +1,12 @@
 import { useEffect, useState } from 'react';
 
+// Type definitions for global variables
+type InvestmentDataType = {
+  totalInvested: number;
+  totalReturned: number;
+  totalReturns: number;
+};
+
 export default function FinancialOverviewCards() {
   const [financialData, setFinancialData] = useState({
     totalInvested: 0,
@@ -11,15 +18,15 @@ export default function FinancialOverviewCards() {
     // Function to calculate all financial data
     const calculateFinancialData = () => {
       // Get investment data
-      const investmentData = window.investmentData || {
+      const investmentData: InvestmentDataType = (window as any).investmentData || {
         totalInvested: 0,
         totalReturned: 0,
         totalReturns: 0
       };
       
       // Get financial planning data
-      const totalInvestments = window.finPlanTotalInvestments || 0;
-      const totalReturns = window.finPlanTotalReturns || 0;
+      const totalInvestments = (window as any).finPlanTotalInvestments || 0;
+      const totalReturns = (window as any).finPlanTotalReturns || 0;
       
       // Calculate total invested amount from all sources
       const totalInvested = investmentData.totalInvested + totalInvestments;
@@ -54,7 +61,7 @@ export default function FinancialOverviewCards() {
   }, []);
 
   // Function to format currency with Indian format and abbreviations (K, lacs, cr)
-  const formatCurrency = (amount) => {
+  const formatCurrency = (amount: number) => {
     // Handle negative values
     const value = amount < 0 ? 0 : amount;
     

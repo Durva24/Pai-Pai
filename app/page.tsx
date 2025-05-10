@@ -11,10 +11,52 @@ interface UserFinancialData {
   liabilities: number;
   financialGoals: string[];
   timeHorizon: number;
-  monthlySavings?: number;
-  investments?: Array<{type: string; amount: number}>;
-  savings?: number;
-  dependents?: any;
+  monthlySavings: number; // Changed from optional to required
+  investments: Array<{type: string; amount: number}>; // Changed from optional to required
+  savings: number; // Changed from optional to required
+  dependents: any;
+}
+
+// Define props interfaces for components
+interface IncomeExpensePredictionProps {
+  title: string;
+  userData: UserFinancialData;
+  income: number;
+  expenses: number;
+  monthlySavings: number;
+}
+
+interface EmergencyFundProps {
+  title: string;
+  userData: UserFinancialData;
+}
+
+interface InvestmentVsReturnsProps {
+  timeHorizon?: number;
+}
+
+interface InvestmentAllocationProps {
+  title: string;
+  userData: UserFinancialData;
+}
+
+interface DebtTrackerProps {
+  title: string;
+  userData: UserFinancialData;
+}
+
+interface FundsProps {
+  title: string;
+  userData: UserFinancialData;
+}
+
+interface InsuranceProps {
+  title: string;
+  userData: UserFinancialData;
+}
+
+interface QuoteProps {
+  title: string;
 }
 
 // Dashboard components
@@ -31,32 +73,39 @@ import Funds from '@/app/components/dashboard/Funds';
 import Insurance from '@/app/components/dashboard/Insurance';
 
 export default function Home() {
+  // Modified the initial state to include default values for required properties
   const [userData, setUserData] = useState<UserFinancialData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleFormSubmit = (data: UserFinancialData) => {
+  // Updated type for form submission to account for partially filled data
+  const handleFormSubmit = (formData: Partial<UserFinancialData>) => {
     setIsLoading(true);
     setError(null);
     
     try {
-      // Calculate monthlySavings if not provided
-      if (!data.monthlySavings) {
-        data.monthlySavings = data.income - data.expenses;
-      }
+      // Calculate and ensure all required properties have values
+      const monthlySavings = formData.monthlySavings ?? (formData.income ?? 0) - (formData.expenses ?? 0);
+      const savings = formData.savings ?? monthlySavings * 3; // Default to 3 months of savings
       
-      // Ensure investments exist
-      if (!data.investments) {
-        data.investments = [];
-      }
-      
-      // Ensure savings exist
-      if (data.savings === undefined) {
-        data.savings = data.monthlySavings * 3; // Default to 3 months of savings as emergency fund
-      }
+      // Create a complete user data object with default values where needed
+      const completeUserData: UserFinancialData = {
+        income: formData.income ?? 0,
+        age: formData.age ?? 30,
+        expenses: formData.expenses ?? 0,
+        location: formData.location ?? '',
+        debts: formData.debts ?? [],
+        liabilities: formData.liabilities ?? 0,
+        financialGoals: formData.financialGoals ?? [],
+        timeHorizon: formData.timeHorizon ?? 10,
+        monthlySavings: monthlySavings,
+        investments: formData.investments ?? [],
+        savings: savings,
+        dependents: formData.dependents ?? null
+      };
       
       // Store the user data
-      setUserData(data);
+      setUserData(completeUserData);
       setIsLoading(false);
     } catch (err) {
       setError('Failed to process financial data. Please try again.');
@@ -98,19 +147,12 @@ export default function Home() {
           <div className="p-4 space-y-6">
             {/* Overview */}
             <Card className="p-4">
-              <Overview 
-                title="Financial Overview"
-                userData={userData}
-              />
+              <Overview />
             </Card>
             
-            {/* Investment vs Returns Graph - Moved below Overview */}
+            {/* Investment vs Returns Graph */}
             <Card className="p-4">
               <InvestmentVsReturns 
-                title="Investment vs Returns"
-                userData={userData}
-                investments={userData.investments}
-                monthlySavings={userData.monthlySavings}
                 timeHorizon={userData.timeHorizon}
               />
             </Card>
@@ -130,7 +172,7 @@ export default function Home() {
             <Card className="p-4">
               <Funds 
                 title="Funds"
-                userData={userData}
+                userData={userData} 
               />
             </Card>
             
@@ -138,9 +180,7 @@ export default function Home() {
             <Card className="p-4">
               <DebtTracker 
                 title="Debt Tracker"
-                userData={userData}
-                debts={userData.debts}
-                liabilities={userData.liabilities}
+                userData={userData} 
               />
             </Card>
             
@@ -148,11 +188,7 @@ export default function Home() {
             <Card className="p-4">
               <InvestmentAllocation 
                 title="Investment Allocation"
-                userData={userData}
-                investments={userData.investments}
-                income={userData.income}
-                age={userData.age}
-                timeHorizon={userData.timeHorizon}
+                userData={userData} 
               />
             </Card>
           </div>
@@ -176,10 +212,6 @@ export default function Home() {
               <Insurance 
                 title="Insurance"
                 userData={userData}
-                age={userData.age}
-                income={userData.income}
-                liabilities={userData.liabilities}
-                dependents={userData.dependents}
               />
             </Card>
           </div>

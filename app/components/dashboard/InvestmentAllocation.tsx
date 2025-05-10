@@ -1,6 +1,60 @@
 import { useState, useEffect } from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, TooltipProps } from 'recharts';
 import { AlertTriangle } from 'lucide-react';
+
+// Define window interface extension for global data
+declare global {
+  interface Window {
+    investmentData?: {
+      totalInvested: number;
+      totalReturned: number;
+      totalReturns: number;
+    };
+  }
+}
+
+// Define interfaces for component data
+interface AllocationData {
+  allocation: {
+    mutualFunds: {
+      percentage: number;
+      largeCap: { percentage: number; return: number };
+      midCap: { percentage: number; return: number };
+      smallCap: { percentage: number; return: number };
+    };
+    gold: { percentage: number; return: number };
+    stocks: { percentage: number; return: number };
+    crypto: { percentage: number; return: number };
+  };
+  pieData: Array<{
+    name: string;
+    value: number;
+    color: string;
+  }>;
+  monthlySavings: number;
+  monthlyInvestment: {
+    largeCap: number;
+    midCap: number;
+    smallCap: number;
+    gold: number;
+    stocks: number;
+    crypto: number;
+    total: number;
+  };
+  futureValue: {
+    largeCap: number;
+    midCap: number;
+    smallCap: number;
+    gold: number;
+    stocks: number;
+    crypto: number;
+    total: number;
+  };
+  totalInvestment: number;
+  totalReturns: number;
+  overallReturn: number;
+  timeHorizon: number;
+}
 
 // Define the props interface for the component
 interface InvestmentAllocationProps {
@@ -14,8 +68,21 @@ interface InvestmentAllocationProps {
   };
 }
 
+// Define custom tooltip props
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: Array<{
+    name: string;
+    value: number;
+    payload: {
+      name: string;
+      value: number;
+    };
+  }>;
+}
+
 export default function InvestmentAllocation({ title, userData }: InvestmentAllocationProps) {
-  const [allocationData, setAllocationData] = useState<any>(null);
+  const [allocationData, setAllocationData] = useState<AllocationData | null>(null);
 
   useEffect(() => {
     if (userData) {
@@ -218,7 +285,7 @@ export default function InvestmentAllocation({ title, userData }: InvestmentAllo
   }
 
   // Format currency in INR
-  const formatCurrency = (value) => {
+  const formatCurrency = (value: number): string => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
       currency: 'INR',
@@ -228,12 +295,12 @@ export default function InvestmentAllocation({ title, userData }: InvestmentAllo
   };
 
   // Format percentage
-  const formatPercentage = (value) => {
+  const formatPercentage = (value: number): string => {
     return `${value.toFixed(2)}%`;
   };
 
   // Custom tooltip for pie chart
-  const CustomTooltip = ({ active, payload }) => {
+  const CustomTooltip = ({ active, payload }: CustomTooltipProps) => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-white p-2 border border-gray-200 shadow-md rounded">

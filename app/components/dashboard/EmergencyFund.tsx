@@ -202,4 +202,3 @@ const EmergencyFund: React.FC<EmergencyFundProps> = ({
 };
 
 export default EmergencyFund;
- 

@@ -1,9 +1,31 @@
 import { useEffect, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
-export default function InvestmentReturnsChart({ timeHorizon = 10 }) {
-  const [chartData, setChartData] = useState([]);
-  const [financialSummary, setFinancialSummary] = useState({
+// Define TypeScript interfaces
+interface ChartDataPoint {
+  year: number;
+  totalInvested: number;
+  totalReturns: number;
+}
+
+interface FinancialSummary {
+  totalInvested: number;
+  totalReturns: number;
+}
+
+// Using type assertion for the window object instead
+type CustomWindow = Window & {
+  investmentData?: {
+    totalInvested: number;
+    totalReturns: number;
+  };
+  finPlanTotalInvestments?: number;
+  finPlanTotalReturns?: number;
+}
+
+export default function InvestmentReturnsChart({ timeHorizon = 10 }: { timeHorizon?: number }) {
+  const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
+  const [financialSummary, setFinancialSummary] = useState<FinancialSummary>({
     totalInvested: 0,
     totalReturns: 0
   });
@@ -11,16 +33,16 @@ export default function InvestmentReturnsChart({ timeHorizon = 10 }) {
 
   useEffect(() => {
     // Function to calculate the growth curves with fluctuations
-    const calculateGrowthCurve = (totalFinalAmount, years, isInvestment = false) => {
+    const calculateGrowthCurve = (totalFinalAmount: number, years: number, isInvestment = false): number[] => {
       const growthRate = isInvestment ? 0.055 : 0.12; // 5.5% for investments, higher for returns
-      const data = [];
+      const data: number[] = [];
       
       // Start from zero
       data.push(0);
       
       // Fill in the curve points with fluctuations
       for (let i = 1; i < years; i++) {
-        let currentAmount;
+        let currentAmount: number;
         
         // Create base amount
         if (isInvestment) {
@@ -60,14 +82,14 @@ export default function InvestmentReturnsChart({ timeHorizon = 10 }) {
       
       try {
         // Get investment data using same approach as FinancialOverviewCards
-        const investmentData = window.investmentData || {
+        const investmentData = (window as CustomWindow).investmentData || {
           totalInvested: 0,
           totalReturns: 0
         };
         
         // Get financial planning data
-        const totalInvestments = window.finPlanTotalInvestments || 0;
-        const finPlanReturns = window.finPlanTotalReturns || 0;
+        const totalInvestments = (window as CustomWindow).finPlanTotalInvestments || 0;
+        const finPlanReturns = (window as CustomWindow).finPlanTotalReturns || 0;
         
         // Calculate total invested and returns
         const totalInvested = investmentData.totalInvested + totalInvestments;
@@ -89,7 +111,7 @@ export default function InvestmentReturnsChart({ timeHorizon = 10 }) {
         
         // Create data points for each year
         const currentYear = new Date().getFullYear();
-        const chartPoints = [];
+        const chartPoints: ChartDataPoint[] = [];
         
         for (let i = 0; i <= timeHorizon; i++) {
           chartPoints.push({
@@ -113,7 +135,7 @@ export default function InvestmentReturnsChart({ timeHorizon = 10 }) {
         
         // Create data points for each year
         const currentYear = new Date().getFullYear();
-        const chartPoints = [];
+        const chartPoints: ChartDataPoint[] = [];
         
         for (let i = 0; i <= timeHorizon; i++) {
           chartPoints.push({
@@ -143,16 +165,16 @@ export default function InvestmentReturnsChart({ timeHorizon = 10 }) {
       fetchFinancialData();
     };
     
-    window.addEventListener('financeDataUpdated', handleFinanceUpdate);
+    (window as Window).addEventListener('financeDataUpdated', handleFinanceUpdate);
     
     // Cleanup listener on component unmount
     return () => {
-      window.removeEventListener('financeDataUpdated', handleFinanceUpdate);
+      (window as Window).removeEventListener('financeDataUpdated', handleFinanceUpdate);
     };
   }, [timeHorizon]); // Re-run when timeHorizon changes
 
   // Format currency in Indian format
-  const formatCurrency = (value) => {
+  const formatCurrency = (value: number): string => {
     // Format based on value range
     if (value >= 10000000) { // 1 crore and above
       return `₹${(value / 10000000).toFixed(2)} cr`;
@@ -213,7 +235,7 @@ export default function InvestmentReturnsChart({ timeHorizon = 10 }) {
               tickSize={3}
             />
             <Tooltip 
-              formatter={(value) => [formatCurrency(value), ""]}
+              formatter={(value) => [formatCurrency(value as number), ""]}
               labelFormatter={(year) => `Year: ${year}`}
               contentStyle={{ fontFamily: 'monospace', fontSize: '12px', color: '#333' }}
             />
