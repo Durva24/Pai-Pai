@@ -16,6 +16,20 @@ interface UserFinancialData {
   [key: string]: number | string | string[] | any; // Add index signature to accommodate any property
 }
 
+interface FormDataType {
+  income: number;
+  age: number;
+  expenses: number;
+  location: string;
+  debtAmount: number;
+  debtInterest: number;
+  liabilities: number;
+  financialGoals: string[];
+  timeHorizon: number;
+  monthlySavings?: number;
+  [key: string]: number | string | string[] | undefined;
+}
+
 interface FinancialGoal {
   id: string;
   label: string;
@@ -101,7 +115,7 @@ const formatIndianCurrency = (amount: number): string => {
 
 const Form: React.FC<FinancialInputSidebarProps> = ({ onDataSubmit, isLoading }) => {
   const [showAdvanced, setShowAdvanced] = useState<boolean>(false);
-  const [formData, setFormData] = useState<any>({
+  const [formData, setFormData] = useState<FormDataType>({
     income: 30000,
     age: 30,
     expenses: 15000,
@@ -115,7 +129,7 @@ const Form: React.FC<FinancialInputSidebarProps> = ({ onDataSubmit, isLoading })
 
   // Calculate monthly savings whenever income or expenses change
   useEffect(() => {
-    setFormData(prev => ({
+    setFormData((prev: FormDataType) => ({
       ...prev,
       monthlySavings: prev.income - prev.expenses
     }));
@@ -126,7 +140,7 @@ const Form: React.FC<FinancialInputSidebarProps> = ({ onDataSubmit, isLoading })
     // Ensure value is within bounds
     const boundedValue = Math.max(config.min, Math.min(config.max, value));
     
-    setFormData(prev => ({
+    setFormData((prev: FormDataType) => ({
       ...prev,
       [field]: boundedValue
     }));
@@ -134,7 +148,7 @@ const Form: React.FC<FinancialInputSidebarProps> = ({ onDataSubmit, isLoading })
 
   // Handle location change
   const handleLocationChange = (e: React.ChangeEvent<HTMLSelectElement>): void => {
-    setFormData(prev => ({
+    setFormData((prev: FormDataType) => ({
       ...prev,
       location: e.target.value
     }));
@@ -142,7 +156,7 @@ const Form: React.FC<FinancialInputSidebarProps> = ({ onDataSubmit, isLoading })
 
   // Toggle financial goals
   const handleGoalToggle = (goalId: string): void => {
-    setFormData(prev => {
+    setFormData((prev: FormDataType) => {
       const updatedGoals = prev.financialGoals.includes(goalId)
         ? prev.financialGoals.filter((g: string) => g !== goalId)
         : [...prev.financialGoals, goalId];
@@ -157,7 +171,7 @@ const Form: React.FC<FinancialInputSidebarProps> = ({ onDataSubmit, isLoading })
   // Smart value adjustments based on field type
   const incrementValue = (field: string): void => {
     const config = FIELD_CONFIGS[field] || { min: 0, max: 1000000, step: 1, increment: 1 };
-    setFormData(prev => {
+    setFormData((prev: FormDataType) => {
       const currentValue = prev[field] as number;
       return {
         ...prev,
@@ -168,7 +182,7 @@ const Form: React.FC<FinancialInputSidebarProps> = ({ onDataSubmit, isLoading })
 
   const decrementValue = (field: string): void => {
     const config = FIELD_CONFIGS[field] || { min: 0, max: 1000000, step: 1, increment: 1 };
-    setFormData(prev => {
+    setFormData((prev: FormDataType) => {
       const currentValue = prev[field] as number;
       return {
         ...prev,
